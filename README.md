@@ -16,6 +16,8 @@ FileArchive is a Windows desktop application for building an incremental, compre
 - **Multi-thread support** during archive import and export.
 
 ![Multiple FileArchive windows](Demo/MultiWindow.png)
+![Import progress](Demo/Import.png)
+![Archive size information](Demo/Size.png)
 
 ## How it works
 
@@ -32,8 +34,6 @@ Content-defined chunking makes deduplication resilient to changes in file bounda
 
 The current chunking configuration uses 1 KiB minimum, 32 KiB target, and 64 KiB maximum chunk sizes. Chunk content is distributed across eight SQLite shard databases, while archive metadata is stored separately.
 
-![Import progress](Demo/Import.png)
-
 ## User interface
 
 The main window is designed around Windows File Explorer conventions:
@@ -43,8 +43,6 @@ The main window is designed around Windows File Explorer conventions:
 - Export a selected file or folder back to the filesystem.
 - Use the context menu to open, open in a new window, rename, copy, cut, paste, or delete items.
 - Customize visible columns, including original size and compressed size.
-
-![Archive size information](Demo/Size.png)
 
 ## Technology
 
