@@ -1,0 +1,10 @@
+{
+  "profiles": {
+    "AzurArchive (Package)": {
+      "commandName": "MsixPackage"
+    },
+    "AzurArchive (Unpackaged)": {
+      "commandName": "Project"
+    }
+  }
+}

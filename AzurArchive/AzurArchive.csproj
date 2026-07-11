@@ -1,0 +1,161 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+	<PropertyGroup>
+		<OutputType>WinExe</OutputType>
+		<TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
+		<TargetPlatformMinVersion>10.0.17763.0</TargetPlatformMinVersion>
+		<RootNamespace>AzurArchive</RootNamespace>
+		<ApplicationManifest>app.manifest</ApplicationManifest>
+		<Platforms>x86;x64;ARM64</Platforms>
+		<RuntimeIdentifiers>win-x86;win-x64;win-arm64</RuntimeIdentifiers>
+		<PublishProfile>win-$(Platform).pubxml</PublishProfile>
+		<UseWinUI>true</UseWinUI>
+		<WinUISDKReferences>false</WinUISDKReferences>
+		<Nullable>enable</Nullable>
+		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+
+		<WindowsPackageType>None</WindowsPackageType>
+		<AppxPackage>false</AppxPackage>
+		<WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
+	</PropertyGroup>
+	<ItemGroup>
+	  <None Remove="Domain\ConfigUI.xaml" />
+	  <None Remove="Views\Controls\CompressedSizeLabel.xaml" />
+	  <None Remove="Views\Controls\FileExplorer.xaml" />
+	  <None Remove="Views\Controls\ListComponents\ItemListColumn.xaml" />
+	  <None Remove="Views\Controls\ListComponents\ItemListColumnHeader.xaml" />
+	  <None Remove="Views\Controls\ListComponents\ResizeRectangle.xaml" />
+	  <None Remove="Views\Controls\NameLabel.xaml" />
+	  <None Remove="Views\Controls\TextLabel.xaml" />
+	  <None Remove="Views\Windows\ExplorerWindow.xaml" />
+	  <None Remove="Views\Windows\ExplorerWindowContent.xaml" />
+	  <None Remove="Views\Windows\InfoWindow.xaml" />
+	  <None Remove="Views\Windows\OperationWindow.xaml" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<Content Include="Assets\SplashScreen.scale-200.png" />
+		<Content Include="Assets\LockScreenLogo.scale-200.png" />
+		<Content Include="Assets\Square150x150Logo.scale-200.png" />
+		<Content Include="Assets\Square44x44Logo.scale-200.png" />
+		<Content Include="Assets\Square44x44Logo.targetsize-24_altform-unplated.png" />
+		<Content Include="Assets\StoreLogo.png" />
+		<Content Include="Assets\Wide310x150Logo.scale-200.png" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<Manifest Include="$(ApplicationManifest)" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<PackageReference Include="AzurArchive.Data" Version="0.0.103" />
+		<PackageReference Include="Microsoft.Extensions.Caching.Memory" Version="10.0.8" />
+		<PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.8" />
+		<PackageReference Include="Microsoft.Extensions.Http" Version="10.0.8" />
+		<PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.28000.1839" />
+		<PackageReference Include="Microsoft.WindowsAppSDK" Version="2.1.3" />
+		<PackageReference Include="WindowIcon" Version="0.0.4" />
+	</ItemGroup>
+
+	<ItemGroup>
+	  <Page Update="Views\Windows\InfoWindow.xaml">
+	    <Generator>MSBuild:Compile</Generator>
+	  </Page>
+	</ItemGroup>
+
+	<ItemGroup>
+	  <Page Update="Views\Controls\CompressedSizeLabel.xaml">
+	    <Generator>MSBuild:Compile</Generator>
+	  </Page>
+	</ItemGroup>
+
+	<ItemGroup>
+	  <Page Update="Domain\ConfigUI.xaml">
+	    <Generator>MSBuild:Compile</Generator>
+	  </Page>
+	</ItemGroup>
+
+	<ItemGroup>
+	  <Page Update="Views\Controls\NameLabel.xaml">
+	    <Generator>MSBuild:Compile</Generator>
+	  </Page>
+	</ItemGroup>
+
+	<ItemGroup>
+	  <Page Update="Views\Windows\ExplorerWindowContent.xaml">
+	    <Generator>MSBuild:Compile</Generator>
+	  </Page>
+	</ItemGroup>
+
+	<ItemGroup>
+	  <Page Update="Views\Controls\TextLabel.xaml">
+	    <Generator>MSBuild:Compile</Generator>
+	  </Page>
+	</ItemGroup>
+
+	<ItemGroup>
+	  <Page Update="Views\Controls\ListComponents\ResizeRectangle.xaml">
+	    <Generator>MSBuild:Compile</Generator>
+	  </Page>
+	</ItemGroup>
+
+	<ItemGroup>
+	  <Page Update="Views\Controls\ListComponents\ItemListColumnHeader.xaml">
+	    <Generator>MSBuild:Compile</Generator>
+	  </Page>
+	</ItemGroup>
+
+	<ItemGroup>
+	  <Page Update="Views\Controls\ListComponents\ItemListColumn.xaml">
+	    <Generator>MSBuild:Compile</Generator>
+	  </Page>
+	</ItemGroup>
+
+	<ItemGroup>
+	  <Page Update="Views\Windows\OperationWindow.xaml">
+	    <Generator>MSBuild:Compile</Generator>
+	  </Page>
+	</ItemGroup>
+
+	<ItemGroup>
+	  <Page Update="Views\Controls\FileExplorer.xaml">
+	    <Generator>MSBuild:Compile</Generator>
+	  </Page>
+	</ItemGroup>
+
+	<ItemGroup>
+	  <Page Update="Views\Windows\ExplorerWindow.xaml">
+	    <Generator>MSBuild:Compile</Generator>
+	  </Page>
+	</ItemGroup>
+
+	<!--
+    Defining the "HasPackageAndPublishMenuAddedByProject" property here allows the Solution
+    Explorer "Package and Publish" context menu entry to be enabled for this project even if
+    the Windows App SDK Nuget package has not yet been restored.
+  -->
+	<PropertyGroup Condition="'$(DisableHasPackageAndPublishMenuAddedByProject)'!='true' and '$(EnableMsixTooling)'=='true'">
+		<HasPackageAndPublishMenu>true</HasPackageAndPublishMenu>
+	</PropertyGroup>
+
+	<!-- Publish Properties -->
+	<PropertyGroup>
+		<PublishReadyToRun Condition="'$(Configuration)' == 'Debug'">False</PublishReadyToRun>
+		<PublishReadyToRun Condition="'$(Configuration)' != 'Debug'">True</PublishReadyToRun>
+		<PublishTrimmed Condition="'$(Configuration)' == 'Debug'">False</PublishTrimmed>
+		<PublishTrimmed Condition="'$(Configuration)' != 'Debug'">True</PublishTrimmed>
+	</PropertyGroup>
+
+	<Target Name="CopyWinUIResources" AfterTargets="Publish">
+		<ItemGroup>
+			<XbfFiles Include="$(TargetDir)**\*.xbf" />
+			<PriFiles Include="$(TargetDir)**\*.pri" />
+			<AssetFolders Include="$(TargetDir)Assets\**\*" />
+		</ItemGroup>
+
+		<Copy SourceFiles="@(XbfFiles)" DestinationFolder="$(PublishDir)%(RecursiveDir)" />
+
+		<Copy SourceFiles="@(PriFiles)" DestinationFolder="$(PublishDir)%(RecursiveDir)" />
+
+		<Copy SourceFiles="@(AssetFolders)" DestinationFiles="@(AssetFolders->'$(PublishDir)%(RecursiveDir)%(Filename)%(Extension)')" />
+	</Target>
+</Project>

@@ -1,0 +1,51 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="Current" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <DebuggerFlavor>ProjectDebugger</DebuggerFlavor>
+  </PropertyGroup>
+  <PropertyGroup>
+    <ActiveDebugProfile>AzurArchive (Unpackaged)</ActiveDebugProfile>
+    <_LastSelectedProfileId>D:\Workstation\Storage\AzurArchive\AzurArchive\Properties\PublishProfiles\win-x64.pubxml</_LastSelectedProfileId>
+  </PropertyGroup>
+  <ItemGroup>
+    <None Update="App.xaml">
+      <SubType>Designer</SubType>
+    </None>
+    <Page Update="Views\Windows\InfoWindow.xaml">
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Update="Views\Controls\CompressedSizeLabel.xaml">
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Update="Views\Controls\NameLabel.xaml">
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Update="Views\Windows\ExplorerWindowContent.xaml">
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Update="Views\Controls\TextLabel.xaml">
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Update="Views\Controls\ListComponents\ResizeRectangle.xaml">
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Update="Views\Controls\ListComponents\ItemListColumnHeader.xaml">
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Update="Views\Controls\ListComponents\ItemListColumn.xaml">
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Update="Views\Windows\OperationWindow.xaml">
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Update="Views\Controls\FileExplorer.xaml">
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Update="Views\Windows\ExplorerWindow.xaml">
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Update="Domain\ConfigUI.xaml">
+      <SubType>Designer</SubType>
+    </Page>
+  </ItemGroup>
+</Project>

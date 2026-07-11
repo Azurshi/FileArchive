@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<local:ItemListColumn x:Class="AzurArchive.Views.Controls.ListComponents.ItemListColumnHeader"
+                      xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                      xmlns:local="using:AzurArchive.Views.Controls.ListComponents"
+                      xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+                      xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+                      mc:Ignorable="d"
+                      PointerEntered="OnPointerEntered"
+                      PointerExited="OnPointerExited"
+                      Tapped="OnTapped"
+                      VerticalAlignment="Stretch"
+                      HorizontalAlignment="Stretch">
+    <Grid Background="Transparent">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="2" />
+        </Grid.ColumnDefinitions>
+        <Grid Grid.Column="0"
+              x:Name="TextContainer"
+              HorizontalAlignment="Center"
+              ColumnSpacing="4">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <TextBlock Grid.Column="0"
+                       x:Name="InnerTextBlock"
+                       VerticalAlignment="Center"
+                       HorizontalAlignment="Center" />
+            <TextBlock Grid.Column="1"
+                       x:Name="StateTextBlock"
+                       VerticalAlignment="Center"
+                       SizeChanged="StateTextBlock_SizeChanged" />
+        </Grid>
+        <local:ResizeRectangle Grid.Column="1"
+                               x:Name="ResizeRect"
+                               PointerPressed="Rectangle_PointerPressed"
+                               PointerMoved="Rectangle_PointerMoved"
+                               PointerReleased="Rectangle_PointerReleased">
+        </local:ResizeRectangle>
+    </Grid>
+</local:ItemListColumn>
