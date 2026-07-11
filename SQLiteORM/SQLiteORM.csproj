@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+	<PropertyGroup>
+		<TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
+		<RootNamespace>SQLiteORM</RootNamespace>
+		<AppendRuntimeIdentifierToOutputPath>false</AppendRuntimeIdentifierToOutputPath>
+		<Nullable>enable</Nullable>
+		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+		
+		<Authors>Azurshi</Authors>
+		<Version>0.3.13</Version>
+		<Description> v0.1: Basic SQL support. v0.2: Add custom type handler. v0.3: Add sync API.</Description>
+	</PropertyGroup>
+	<ItemGroup>
+		<PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" Version="3.0.3" />
+		<PackageReference Include="SQLitePCLRaw.core" Version="3.0.3" />
+	</ItemGroup>
+</Project>

@@ -1,0 +1,182 @@
+<?xml version="1.0" encoding="utf-8"?>
+<UserControl x:Class="AzurArchive.Views.Controls.FileExplorer"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:local="using:AzurArchive.Views.Controls"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:component="using:AzurArchive.Views.Controls.ListComponents"
+             xmlns:items="using:AzurArchive.ViewModels.Items"
+             xmlns:view="using:AzurArchive.Views"
+             xmlns:service="using:AzurArchive.Services"
+             mc:Ignorable="d">
+    <ListView Grid.Row="1"
+              x:Name="Container"
+              SelectionMode="None"
+              ScrollViewer.VerticalScrollMode="Enabled"
+              ScrollViewer.VerticalScrollBarVisibility="Visible"
+              ScrollViewer.HorizontalScrollMode="Enabled"
+              ScrollViewer.HorizontalScrollBarVisibility="Auto"
+              SelectionChanged="Container_SelectionChanged">
+        <ListView.Header>
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="1" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="1" />
+                </Grid.RowDefinitions>
+                <Rectangle Grid.Row="0"
+                           Grid.ColumnSpan="2"
+                           Fill="Gray" />
+                <Grid Grid.Column="0"
+                      Grid.Row="1"
+                      x:Name="HeaderColumns"
+                      view:GridHelperAuto.AutoColumns="{x:Bind HeaderInfo.ColumnCount, Mode=OneWay}">
+                    <component:ItemListColumnHeader ColumnInfo="{x:Bind HeaderInfo.IdColumn, Mode=OneWay}"
+                                                    PointerPressed="ItemListColumnHeader_PointerPressed"
+                                                    PointerMoved="ItemListColumnHeader_PointerMoved"
+                                                    PointerReleased="ItemListColumnHeader_PointerReleased"
+                                                    HeaderSelected="ItemListColumnHeader_HeaderSelected" />
+                    <component:ItemListColumnHeader ColumnInfo="{x:Bind HeaderInfo.NameColumn, Mode=OneWay}"
+                                                    PointerPressed="ItemListColumnHeader_PointerPressed"
+                                                    PointerMoved="ItemListColumnHeader_PointerMoved"
+                                                    PointerReleased="ItemListColumnHeader_PointerReleased"
+                                                    HeaderSelected="ItemListColumnHeader_HeaderSelected" />
+                    <component:ItemListColumnHeader ColumnInfo="{x:Bind HeaderInfo.CreationTimeColumn, Mode=OneWay}"
+                                                    PointerPressed="ItemListColumnHeader_PointerPressed"
+                                                    PointerMoved="ItemListColumnHeader_PointerMoved"
+                                                    PointerReleased="ItemListColumnHeader_PointerReleased"
+                                                    HeaderSelected="ItemListColumnHeader_HeaderSelected" />
+                    <component:ItemListColumnHeader ColumnInfo="{x:Bind HeaderInfo.ModifiedTimeColumn, Mode=OneWay}"
+                                                    PointerPressed="ItemListColumnHeader_PointerPressed"
+                                                    PointerMoved="ItemListColumnHeader_PointerMoved"
+                                                    PointerReleased="ItemListColumnHeader_PointerReleased"
+                                                    HeaderSelected="ItemListColumnHeader_HeaderSelected" />
+                    <component:ItemListColumnHeader ColumnInfo="{x:Bind HeaderInfo.OriginalSizeColumn, Mode=OneWay}"
+                                                    PointerPressed="ItemListColumnHeader_PointerPressed"
+                                                    PointerMoved="ItemListColumnHeader_PointerMoved"
+                                                    PointerReleased="ItemListColumnHeader_PointerReleased"
+                                                    HeaderSelected="ItemListColumnHeader_HeaderSelected" />
+                    <component:ItemListColumnHeader ColumnInfo="{x:Bind HeaderInfo.CompressedSizeColumn, Mode=OneWay}"
+                                                    PointerPressed="ItemListColumnHeader_PointerPressed"
+                                                    PointerMoved="ItemListColumnHeader_PointerMoved"
+                                                    PointerReleased="ItemListColumnHeader_PointerReleased"
+                                                    HeaderSelected="ItemListColumnHeader_HeaderSelected" />
+
+                </Grid>
+                <Button Grid.Row="1"
+                        Grid.Column="1"
+                        Content="...">
+                    <Button.Flyout>
+                        <Flyout>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Grid.Column="0"
+                                            Orientation="Vertical">
+                                    <CheckBox Content="{x:Bind HeaderInfo.NameColumn.Name, Mode=OneWay}"
+                                              IsChecked="{x:Bind HeaderInfo.NameColumn.IsVisible, Mode=TwoWay}" />
+                                    <CheckBox Content="{x:Bind HeaderInfo.CreationTimeColumn.Name, Mode=OneWay}"
+                                              IsChecked="{x:Bind HeaderInfo.CreationTimeColumn.IsVisible, Mode=TwoWay}" />
+                                    <CheckBox Content="{x:Bind HeaderInfo.ModifiedTimeColumn.Name, Mode=OneWay}"
+                                              IsChecked="{x:Bind HeaderInfo.ModifiedTimeColumn.IsVisible, Mode=TwoWay}" />
+                                    <CheckBox Content="{x:Bind HeaderInfo.OriginalSizeColumn.Name, Mode=OneWay}"
+                                              IsChecked="{x:Bind HeaderInfo.OriginalSizeColumn.IsVisible, Mode=TwoWay}" />
+                                </StackPanel>
+                                <StackPanel Grid.Column="1"
+                                            Orientation="Vertical">
+                                    <CheckBox Content="{x:Bind HeaderInfo.IdColumn.Name, Mode=OneWay}"
+                                              IsChecked="{x:Bind HeaderInfo.IdColumn.IsVisible, Mode=TwoWay}" />
+                                    <CheckBox Content="{x:Bind HeaderInfo.CompressedSizeColumn.Name, Mode=OneWay}"
+                                              IsChecked="{x:Bind HeaderInfo.CompressedSizeColumn.IsVisible, Mode=TwoWay}" />
+                                </StackPanel>
+                            </Grid>
+                        </Flyout>
+                    </Button.Flyout>
+                </Button>
+                <Rectangle Grid.Row="2"
+                           Grid.ColumnSpan="2"
+                           Fill="Gray" />
+            </Grid>
+        </ListView.Header>
+        <ListView.ItemsPanel>
+            <ItemsPanelTemplate>
+                <ItemsStackPanel Orientation="Vertical" />
+            </ItemsPanelTemplate>
+        </ListView.ItemsPanel>
+        <ListView.ItemContainerStyle>
+            <Style TargetType="ListViewItem">
+                <Setter Property="HorizontalContentAlignment"
+                        Value="Stretch" />
+                <Setter Property="VerticalContentAlignment"
+                        Value="Stretch" />
+                <Setter Property="Margin"
+                        Value="0, 0" />
+                <Setter Property="Padding"
+                        Value="0, 0, 0, 0" />
+            </Style>
+        </ListView.ItemContainerStyle>
+        <ListView.ItemTemplate>
+            <DataTemplate x:DataType="items:ExplorerItemViewModel">
+                <Grid view:GridHelperAuto.AutoColumns="{x:Bind HeaderInfo.ColumnCount, Mode=OneWay}"
+                      Height="48"
+                      DoubleTapped="Grid_DoubleTapped"
+                      RightTapped="Grid_RightTapped">
+                    <Grid.ContextFlyout>
+                        <MenuFlyout Opening="MenuFlyout_Opening"
+                                    Closed="MenuFlyout_Closed">
+                            <MenuFlyoutItem Text="Open" 
+                                            Click="Menu_Open_Clicked"/>
+                            <MenuFlyoutItem Text="Open in new window"
+                                            Command="{x:Bind OpenInNewWindowCommand, Mode=OneWay}" />
+                            <MenuFlyoutItem Text="Export" 
+                                            Command="{x:Bind service:Commands.ExportCommand, Mode=OneWay}"
+                                            CommandParameter="{x:Bind Mode=OneWay}"/>
+                            <MenuFlyoutSeparator />
+                            <MenuFlyoutItem Text="Rename" 
+                                            Click="MenuFlyoutItem_Click"/>
+                            <MenuFlyoutItem Text="Cut" 
+                                            Command="{x:Bind CutCommand, Mode=OneWay}"/>
+                            <MenuFlyoutItem Text="Copy" 
+                                            Command="{x:Bind CopyCommand, Mode=OneWay}"/>
+                            <MenuFlyoutItem Text="Delete"
+                                            Command="{x:Bind service:Commands.DeleteCommand, Mode=OneWay}"
+                                            CommandParameter="{x:Bind Mode=OneWay}"/>
+                        </MenuFlyout>
+                    </Grid.ContextFlyout>
+                    <component:ItemListColumn ColumnInfo="{x:Bind HeaderInfo.IdColumn, Mode=OneWay}">
+                        <TextBlock Text="{x:Bind Id, Mode=OneWay}"
+                                   VerticalAlignment="Center" />
+                    </component:ItemListColumn>
+                    <component:ItemListColumn ColumnInfo="{x:Bind HeaderInfo.CreationTimeColumn, Mode=OneWay}">
+                        <TextBlock Text="{x:Bind CreationTimeString, Mode=OneWay}"
+                                   VerticalAlignment="Center" />
+                    </component:ItemListColumn>
+                    <component:ItemListColumn ColumnInfo="{x:Bind HeaderInfo.ModifiedTimeColumn, Mode=OneWay}">
+                        <TextBlock Text="{x:Bind ModifiedTimeString, Mode=OneWay}"
+                                   VerticalAlignment="Center" />
+                    </component:ItemListColumn>
+                    <component:ItemListColumn ColumnInfo="{x:Bind HeaderInfo.OriginalSizeColumn, Mode=OneWay}">
+                        <TextBlock Text="{x:Bind OriginalSizeString, Mode=OneWay}"
+                                   VerticalAlignment="Center"
+                                   HorizontalTextAlignment="Right"
+                                   HorizontalAlignment="Right" />
+                    </component:ItemListColumn>
+
+                    <component:ItemListColumn ColumnInfo="{x:Bind HeaderInfo.NameColumn, Mode=OneWay}">
+                        <local:NameLabel Data="{x:Bind Mode=OneWay}" />
+                    </component:ItemListColumn>
+                    <component:ItemListColumn ColumnInfo="{x:Bind HeaderInfo.CompressedSizeColumn, Mode=OneWay}">
+                        <local:CompressedSizeLabel Data="{x:Bind Mode=OneWay}" />
+                    </component:ItemListColumn>
+                </Grid>
+            </DataTemplate>
+        </ListView.ItemTemplate>
+    </ListView>
+</UserControl>
