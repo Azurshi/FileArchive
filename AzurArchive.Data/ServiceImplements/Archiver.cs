@@ -81,15 +81,15 @@ internal class Archiver: IArchiver {
         return _chunkRepo.GetOriginalByteCount();
     }
 
-    public async Task<FolderEntry?> Import(long folderId, string inputFolderPath, int nWorkers, IProgress<ArchiveProgress> progress, CancellationToken token) {
-        await LockManager.LargeModifyLock.WaitAsync();
+    public async Task<FolderEntry?> ImportFolder(long folderId, string inputFolderPath, int nWorkers, IProgress<ArchiveProgress> progress, CancellationToken token) {
+        await LockManager.LargeModifyLock.WaitAsync(token);
         this.Busy = true;
         try {
             Stopwatch sw = new();
             sw.Start();
             FolderDto? root = WalkDirectory(inputFolderPath);
             if (root != null) {
-                var entity = await _archiveRepo.Import(folderId, root, nWorkers, progress, token);
+                var entity = await Task.Run(() => _archiveRepo.ImportFolder(folderId, root, nWorkers, progress, token));
                 sw.Stop();
                 Debug.WriteLine($"Elapsed time: {sw.Elapsed.TotalSeconds} s");
                 if (entity != null) {
@@ -108,13 +108,13 @@ internal class Archiver: IArchiver {
             LockManager.LargeModifyLock.Release();
         }
     }
-    public async Task<bool> Restore(long folderId, string outputFolderPath, int nWorkers, IProgress<ArchiveProgress> progress, CancellationToken token) {
-        await LockManager.LargeModifyLock.WaitAsync();
+    public async Task<bool> RestoreFolder(long folderId, string outputFolderPath, int nWorkers, IProgress<ArchiveProgress> progress, CancellationToken token) {
+        await LockManager.LargeModifyLock.WaitAsync(token);
         this.Busy = true;
         try {
             Stopwatch sw = new();
             sw.Start();
-            var result = await _archiveRepo.Restore(folderId, outputFolderPath, nWorkers, progress, token);
+            var result = await Task.Run(() => _archiveRepo.RestoreFolder(folderId, outputFolderPath, nWorkers, progress, token));
             sw.Stop();
             Debug.WriteLine($"Elapsed time: {sw.Elapsed.TotalSeconds} s");
             return result;
@@ -125,14 +125,14 @@ internal class Archiver: IArchiver {
         }
     }
 
-    public Task<bool> RestoreFile(long fileId, string outputFolderPath, int nWorkers, IProgress<ArchiveProgress> progress, CancellationToken token) {
-        return Task.Run(() => _archiveRepo.RestoreFile(fileId, outputFolderPath, nWorkers, progress, token));
+    public async Task<bool> RestoreFile(long fileId, string outputFolderPath, IProgress<ArchiveProgress> progress, CancellationToken token) {
+        return await Task.Run(() => _archiveRepo.RestoreFile(fileId, outputFolderPath, progress, token));
     }
     public async Task<long?> DeleteFolder(long folderId, IProgress<ArchiveProgress> progress, CancellationToken token) {
-        await LockManager.LargeModifyLock.WaitAsync();
+        await LockManager.LargeModifyLock.WaitAsync(token);
         this.Busy = true;
         try {
-            return await Task.Run(() => this._archiveRepo.Delete(folderId, progress, token));
+            return await Task.Run(() => this._archiveRepo.DeleteFolder(folderId, progress, token));
         }
         finally {
             this.Busy = false;
@@ -141,10 +141,30 @@ internal class Archiver: IArchiver {
     }
 
     public async Task<long?> DeleteFile(long fileId, IProgress<ArchiveProgress> progress, CancellationToken token) {
-        await LockManager.LargeModifyLock.WaitAsync();
+        await LockManager.LargeModifyLock.WaitAsync(token);
         this.Busy = true;
         try {
             return await Task.Run(() => this._archiveRepo.DeleteFile(fileId, progress, token));
+        }
+        finally {
+            this.Busy = false;
+            LockManager.LargeModifyLock.Release();
+        }
+    }
+
+    public async Task<FileEntry?> ImportFile(long folderId, string inputFilePath, IProgress<ArchiveProgress> progress, CancellationToken token) {
+        await LockManager.LargeModifyLock.WaitAsync(token);
+        this.Busy = true;
+        try {
+            Stopwatch sw = new();
+            sw.Start();
+            var entity = await Task.Run(() => _archiveRepo.ImportFile(folderId, inputFilePath, progress, token));
+            if (entity != null) {
+                return new(entity.FolderId, entity.Id!.Value, entity.Name, entity.CreationTime, entity.ModifiedTime, entity.OriginalSize);
+            }
+            else {
+                return null;
+            }
         }
         finally {
             this.Busy = false;

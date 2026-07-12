@@ -3,7 +3,12 @@ using System;
 
 namespace AzurArchive.Data.Database.Entities;
 
-[Table]
+[Table(
+    tableName: null,
+    tableOptions: [],
+    indexOptions: [nameof(ParentId)],
+    afterTableOption: ""
+    )]
 internal class FolderEntity {
     [PrimaryKey, AutoIncrement] public long? Id { get; init; }
     [DatabaseField] public long ParentId { get; init; }

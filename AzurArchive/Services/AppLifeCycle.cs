@@ -73,6 +73,7 @@ public static class AppLifeCycle {
             return;
         }
         Debug.WriteLine("!!!---App closing---!!!");
+        _exited = true;
         Stopwatch sw = new();
         sw.Start();
         foreach (var handler in _closeHandlers) {
@@ -80,7 +81,6 @@ public static class AppLifeCycle {
         }
         sw.Stop();
         _closeHandlers.Clear();
-        _exited = true;
         Debug.WriteLine($"!!!---App closed---!!! {sw.ElapsedMilliseconds} ms");
         Application.Current.Exit();
     }

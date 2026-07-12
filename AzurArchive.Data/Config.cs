@@ -16,4 +16,7 @@ internal static class Config {
     public const float CompactationPercent = 0.5f;
     public const int Shards = 8;
     public const int MaxMaintainShard = 8;
+
+    public const string DatabaseName = "appData.db";
+    public const string ShardFolder = "Shards";
 }

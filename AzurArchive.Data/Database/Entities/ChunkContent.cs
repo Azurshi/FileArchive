@@ -3,7 +3,7 @@ using System;
 
 namespace AzurArchive.Data.Database.Entities;
 
-[Table(null, [], "WITHOUT ROWID")]
+[Table(null, [], [], "WITHOUT ROWID")]
 internal class ChunkContent {
     [PrimaryKey] public Hash256 Hash { get; init; }
     [DatabaseField] public byte[] Content { get; init; }
@@ -13,7 +13,7 @@ internal class ChunkContent {
     }
 }
 
-[Table(nameof(ChunkContent), [], "WITHOUT ROWID")]
+[Table(nameof(ChunkContent), [], [], "WITHOUT ROWID")]
 internal class ChunkContentTempory {
     [PrimaryKey] public Hash256 Hash { get; init; }
     [DatabaseField] public Memory<byte> Content { get; init; }

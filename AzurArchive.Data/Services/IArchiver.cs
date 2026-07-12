@@ -30,9 +30,10 @@ public class MovingProgress {
 public interface IArchiver {
     public bool Busy { get; }
     public event EventHandler? BusyChanged;
-    public Task<FolderEntry?> Import(long folderId, string inputFolderPath, int nWorkers, IProgress<ArchiveProgress> progress, CancellationToken token);
-    public Task<bool> Restore(long folderId, string outputFolderPath, int nWorkers, IProgress<ArchiveProgress> progress, CancellationToken token);
-    public Task<bool> RestoreFile(long fileId, string outputFolderPath, int nWorkers, IProgress<ArchiveProgress> progress, CancellationToken token);
+    public Task<FolderEntry?> ImportFolder(long folderId, string inputFolderPath, int nWorkers, IProgress<ArchiveProgress> progress, CancellationToken token);
+    public Task<FileEntry?> ImportFile(long folderId, string inputFilePath, IProgress<ArchiveProgress> progress, CancellationToken token);
+    public Task<bool> RestoreFolder(long folderId, string outputFolderPath, int nWorkers, IProgress<ArchiveProgress> progress, CancellationToken token);
+    public Task<bool> RestoreFile(long fileId, string outputFolderPath, IProgress<ArchiveProgress> progress, CancellationToken token);
     public Task<long> GetEstimatedFileArchiveSize(long fileId, CancellationToken token);
     public Task<long> GetEstimatedFolderArchiveSize(long folderId, CancellationToken token);
     public Task<long> GetOriginalByteCount(CancellationToken token);

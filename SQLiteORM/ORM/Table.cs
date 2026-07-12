@@ -1,6 +1,7 @@
 ﻿using SQLiteORM.Internal;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 namespace SQLiteORM.ORM;
 
 internal static class TableORMConstructor {
@@ -11,10 +12,12 @@ internal static class TableORMConstructor {
             List<string> lines = [];
             List<string> primaryKeys = [];
             bool hasAutoIncrement = false;
+            HashSet<string> columnNames = [];
             foreach (var property in type.GetProperties()) {
                 bool hasAttribute = property.IsDefined(typeof(DatabaseFieldAttribute), inherit: true);
                 Type propertyType = property.PropertyType;
                 string fieldName = property.Name;
+                columnNames.Add(fieldName.ToLower());
                 string? typeString = null;
                 if (hasAttribute) {
                     if (property.IsDefined(typeof(JsonFieldAttribute), inherit: true)) {
@@ -56,7 +59,7 @@ internal static class TableORMConstructor {
                 }
                 lines.Add(string.Join(" ", parts));
             }
-            string query = string.Empty;
+            string query;
             if (hasAutoIncrement) {
                 query = $"""
                 CREATE TABLE IF NOT EXISTS {tableName} (
@@ -75,6 +78,20 @@ internal static class TableORMConstructor {
                 query += ",\n    " + string.Join(",\n    ", extraArgs);
             }
             query += $"\n) {tableAttribute.AfterTableOption} ;";
+            // Index handle
+            List<string> indexes = [];
+            foreach(var indexOption in tableAttribute.IndexOptions) {
+                string[] columns = indexOption.Split(",").Select(i => i.Trim()).ToArray();
+                foreach(var column in columns) {
+                    if (!columnNames.Contains(column.ToLower())) {
+                        throw new Exception("Column name not found when creating index");
+                    }
+                }
+                indexes.Add($"CREATE INDEX IF NOT EXISTS IX_{string.Join("_", columns)}_{tableName} ON {tableName}({string.Join(", ", columns)})");
+            }
+            if (indexes.Count > 0) {
+                query += "\n" + string.Join(" ;\n", indexes);
+            }
             return query;
         }
         else {

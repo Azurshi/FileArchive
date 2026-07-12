@@ -51,9 +51,9 @@ public static class Commands {
                         var window = OperationWindow.Create(OperationType.Export);
                         window.Activate();
                         if (vm.IsFolder) {
-                            await Archiver.Restore(vm.Id, path, 4, new Progress<ArchiveProgress>(window.Report), window.Token);
+                            await Archiver.RestoreFolder(vm.Id, path, 4, new Progress<ArchiveProgress>(window.Report), window.Token);
                         } else {
-                            await Archiver.RestoreFile(vm.Id, path, 4, new Progress<ArchiveProgress>(window.Report), window.Token);
+                            await Archiver.RestoreFile(vm.Id, path, new Progress<ArchiveProgress>(window.Report), window.Token);
                         }
                     }
                     else {
@@ -75,7 +75,7 @@ public static class Commands {
                 if (Directory.Exists(path)) {
                     var window = OperationWindow.Create(OperationType.Import);
                     window.Activate();
-                    var folder = await Archiver.Import(id, path, 4, new Progress<ArchiveProgress>(window.Report), window.Token);;
+                    var folder = await Archiver.ImportFolder(id, path, 4, new Progress<ArchiveProgress>(window.Report), window.Token);;
                     if (folder != null) {
                         ItemAddedEventArgs args = new(folder.Id, false);
                         EventSystem.Publish(null, args);

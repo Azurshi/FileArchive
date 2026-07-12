@@ -7,7 +7,7 @@
 		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
 		
 		<Authors>Azurshi</Authors>
-		<Version>0.3.13</Version>
+		<Version>0.3.16</Version>
 		<Description> v0.1: Basic SQL support. v0.2: Add custom type handler. v0.3: Add sync API.</Description>
 	</PropertyGroup>
 	<ItemGroup>
