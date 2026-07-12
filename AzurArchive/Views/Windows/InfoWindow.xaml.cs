@@ -17,6 +17,8 @@ public sealed partial class InfoWindow: Window {
         InitializeComponent();
         this.AppWindow.Closing += this.AppWindow_Closing;
         this.Activated += this.ExplorerWindow_Activated;
+        this.AppWindow.Resize(new(512, 200));
+
     }
     private async void ExplorerWindow_Activated(object sender, WindowActivatedEventArgs args) {
         long totalSize = await _archiver.GetOriginalByteCount(CancellationToken.None);

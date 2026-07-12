@@ -1,20 +1,20 @@
 ﻿using AzurArchive.Data.Database.Entities;
+using AzurArchive.Data.Services;
 using SQLiteORM;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace AzurArchive.Data.Database.Repositories;
 
 internal partial class ChunkContentWriter: IDisposable {
     private readonly List<SQLiteWriteConnection> _shards;
-    private readonly string _savePath;
-    public ChunkContentWriter(DataManager manager) {
-        this._savePath = manager.SaveDirectory;
+    public ChunkContentWriter(string saveDirectory) {
         this._shards = [];
-        string shardFolder = Path.Combine(_savePath, "Shards");
+        string shardFolder = Path.Combine(saveDirectory, Config.ShardFolder);
         for (int i = 0; i < Config.Shards; i++) {
             string shardPath = Path.Join(shardFolder, $"shard{i}.db");
             SQLiteWriteConnection connection = new(shardPath);
@@ -72,7 +72,32 @@ internal partial class ChunkContentWriter: IDisposable {
                     WHERE Hash IN ({GetPlaceholder(batch.Count)})
                     """, batch.Cast<object>().ToArray());
             }
-
+        }
+    }
+    public void DeleteChunks(IReadOnlyList<Hash256> hashes, IProgress<ArchiveProgress> progress, CancellationToken token) {
+        List<List<Hash256>> distributedHashes = [];
+        for (int i = 0; i < Config.Shards; i++) {
+            distributedHashes.Add([]);
+        }
+        foreach (var hash in hashes) {
+            distributedHashes[hash.ShardIndex].Add(hash);
+        }
+        int deletedCount = 0;
+        int totalCount = hashes.Count;
+        progress.Report(new(deletedCount, totalCount, "Delete", false));
+        for (int i = 0; i < Config.Shards; i++) {
+            var shard = this._shards[i];
+            var items = distributedHashes[i];
+            var batches = items.Chunk(Config.MaxParameterCount).Select(c => c.ToList());
+            foreach (var batch in batches) {
+                token.ThrowIfCancellationRequested();
+                shard.Delete($"""
+                    DELETE FROM ChunkContent
+                    WHERE Hash IN ({GetPlaceholder(batch.Count)})
+                    """, batch.Cast<object>().ToArray());
+                deletedCount += batch.Count;
+                progress.Report(new(deletedCount, totalCount, "Delete", false));
+            }
         }
     }
     public void LightMaintain() {
@@ -88,7 +113,6 @@ internal partial class ChunkContentWriter: IDisposable {
                     break;
                 }
             }
-           
         }
     }
     public void Dispose() {
@@ -103,11 +127,9 @@ internal partial class ChunkContentWriter: IDisposable {
 
 internal partial class ChunkContentReader: IDisposable {
     private readonly List<SQLiteReadConnection> _shards;
-    private readonly string _savePath;
-    public ChunkContentReader(DataManager manager) {
-        this._savePath = manager.SaveDirectory;
+    public ChunkContentReader(string saveDirectory) {
         this._shards = [];
-        string shardFolder = Path.Combine(_savePath, "Shards");
+        string shardFolder = Path.Combine(saveDirectory, Config.ShardFolder);
         for (int i = 0; i < Config.Shards; i++) {
             string shardPath = Path.Join(shardFolder, $"shard{i}.db");
             SQLiteWriteConnection connection = new(shardPath);

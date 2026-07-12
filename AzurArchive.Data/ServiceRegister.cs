@@ -17,8 +17,6 @@ public static class ServiceCollectionExtensions {
         services.AddSingleton<DataManager>();
 
         // Database
-        services.AddTransient<ChunkContentReader>();
-        services.AddTransient<ChunkContentWriter>();
         services.AddSingleton<ChunkRepository>();
         services.AddSingleton<FileRepository>();
         services.AddSingleton<FolderRepository>();
