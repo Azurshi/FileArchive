@@ -6,7 +6,6 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Threading;
-using System.Threading.Tasks;
 
 namespace AzurArchive.Data.Database.Repositories;
 
@@ -105,34 +104,12 @@ internal partial class ArchiveRepository {
         }
         return fileIds;
     }
-    private static long GetFolderParentId(SQLiteReadConnection reader, long folderId) {
-        var rows = reader.Select<long>($"""
-                SELECT ParentId FROM FolderEntity WHERE Id = ?
-                """, folderId).ToList();
-        if (rows.Count == 0) {
-            throw new KeyNotFoundException();
-        }
-        else {
-            return rows[0].Item1;
-        }
-    }
-    private static long GetFileParentId(SQLiteReadConnection reader, long folderId) {
-        var row = reader.Select<long>($"""
-                SELECT FolderId FROM FileEntity WHERE Id = ?
-                """, folderId).ToList();
-        if (row.Count == 0) {
-            throw new KeyNotFoundException();
-        }
-        else {
-            return row[0].Item1;
-        }
-    }
     public long? DeleteFolder(long folderId, IProgress<ArchiveProgress> progress, CancellationToken token) {
         string dbPath = Path.Join(this._saveFolder, Config.DatabaseName);
         SQLiteWriteConnection writer = new(dbPath);
         writer.BeginTransaction();
         try {
-            long parentFolderId = GetFolderParentId(writer, folderId);
+            long parentFolderId = FolderRepository.GetFolderParentId(writer, folderId) ?? throw new KeyNotFoundException();
             var fileIds = DeleteFolderAndFiles(writer, folderId);
             token.ThrowIfCancellationRequested();
             DeleteChunks(writer, this._saveFolder, fileIds, progress, token);
@@ -172,7 +149,7 @@ internal partial class ArchiveRepository {
         SQLiteWriteConnection writer = new(dbPath);
         writer.BeginTransaction();
         try {
-            long parentFolderId = GetFileParentId(writer, fileId);
+            long parentFolderId = FileRepository.GetFileParentId(writer, fileId) ?? throw new KeyNotFoundException();
             writer.Delete("DELETE FROM FileEntity WHERE Id = ?", fileId);
             token.ThrowIfCancellationRequested();
             DeleteChunks(writer, this._saveFolder, [fileId], progress, token);

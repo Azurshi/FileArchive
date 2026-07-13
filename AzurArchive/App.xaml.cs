@@ -54,7 +54,7 @@ public partial class App: Application {
 
         AppLifeCycle.RegisterAppClose(async () => {
             var dataManager = provider.GetRequiredService<DataManager>();
-            await dataManager.Dispose();
+            dataManager.Dispose();
             var appSetting = provider.GetRequiredService<IAppSetting>();
             appSetting.Dispose();
         });

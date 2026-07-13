@@ -18,8 +18,6 @@ internal record FolderDto(
     );
 
 internal class Archiver: IArchiver {
-    private readonly FolderRepository _folderRepo;
-    private readonly FileRepository _fileRepo;
     private readonly ChunkRepository _chunkRepo;
     //private readonly UpdateRepository _updateRep~o;
     private readonly ArchiveRepository _archiveRepo;
@@ -36,9 +34,7 @@ internal class Archiver: IArchiver {
         }
     }
 
-    public Archiver(FolderRepository folderRepository, FileRepository fileRepository, ChunkRepository chunkRepository, ArchiveRepository archiveRepository) {
-        this._folderRepo = folderRepository;
-        this._fileRepo = fileRepository;
+    public Archiver(ChunkRepository chunkRepository, ArchiveRepository archiveRepository) {
         this._chunkRepo = chunkRepository;
         this._archiveRepo = archiveRepository;
     }

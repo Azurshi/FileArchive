@@ -86,6 +86,7 @@ internal partial class AppSetting: IAppSetting {
                 _saveTimer.Stop();
                 SaveData();
             };
+            this._saveTimer.Start();
         }
         else {
             _saveTimer.Stop();

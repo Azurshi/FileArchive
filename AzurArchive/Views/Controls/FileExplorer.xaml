@@ -136,7 +136,7 @@
                             <MenuFlyoutItem Text="Open in new window"
                                             Command="{x:Bind OpenInNewWindowCommand, Mode=OneWay}" />
                             <MenuFlyoutItem Text="Export" 
-                                            Command="{x:Bind service:Commands.ExportCommand, Mode=OneWay}"
+                                            Command="{x:Bind service:Commands.ExportCommand}"
                                             CommandParameter="{x:Bind Mode=OneWay}"/>
                             <MenuFlyoutSeparator />
                             <MenuFlyoutItem Text="Rename" 
@@ -146,7 +146,7 @@
                             <MenuFlyoutItem Text="Copy" 
                                             Command="{x:Bind CopyCommand, Mode=OneWay}"/>
                             <MenuFlyoutItem Text="Delete"
-                                            Command="{x:Bind service:Commands.DeleteCommand, Mode=OneWay}"
+                                            Command="{x:Bind service:Commands.DeleteCommand}"
                                             CommandParameter="{x:Bind Mode=OneWay}"/>
                         </MenuFlyout>
                     </Grid.ContextFlyout>
