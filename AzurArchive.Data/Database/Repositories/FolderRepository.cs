@@ -9,7 +9,7 @@ using System.Threading.Tasks;
 
 namespace AzurArchive.Data.Database.Repositories;
 
-internal class FolderRepository {
+internal partial class FolderRepository {
     private readonly DatabaseContextAsync _db;
     private readonly DatabaseContext _syncDb;
     public FolderRepository(DataManager manager) {
@@ -41,31 +41,10 @@ internal class FolderRepository {
             }
         }
     }
-    internal async Task<FolderEntity?> GetFolder(SQLiteReadConnection connection, long folderId) {
-        var rows = await connection.SelectAsync<
-            long, long, string, DateTime, DateTime
-            >("SELECT * FROM FolderEntity WHERE Id = ?", folderId);
-        if (rows.Count > 0) {
-            return new(rows[0]);
-        }
-        else {
-            return null;
-        }
-    }
     public async Task<FolderEntity?> GetFolder(long folderId) {
         using (var db = await _db.GetReader()) {
             return await GetFolder(db.Connection, folderId);   
         }
-    }
-    internal static async Task<List<FolderEntity>> GetFolders(SQLiteReadConnection connection, long parentId) {
-        var rows = await connection.SelectAsync<
-            long, long, string, DateTime, DateTime
-            >("SELECT * FROM FolderEntity WHERE ParentId = ?", parentId);
-        List<FolderEntity> result = new(rows.Count);
-        foreach (var row in rows) {
-            result.Add(new(row));
-        }
-        return result;
     }
     public async Task<List<FolderEntity>> GetFolders(long parentId) {
         using(var db = await _db.GetReader()) {
@@ -98,104 +77,105 @@ internal class FolderRepository {
         return result;
     }
     public async Task<bool> Move(long folderId, long toFolderId, IProgress<MovingProgress> progress) {
+        // Validate when move to children folder
         using(var db = await _db.GetWriter()) {
             var connection = db.Connection;
-            var rows = await connection.SelectAsync<long>(
-                "SELECT Id FROM FolderEntity WHERE Id IN (?,?)", folderId,  toFolderId);
-            if (rows.Count == 0 || (rows.Count == 1 && toFolderId != -1)) {
+            if ((toFolderId == -1 || CheckFolderExists(connection, toFolderId)) // To folder must exists or is root
+                && (await GetFolder(connection, folderId)) is FolderEntity folder // Folder must exists
+                && !FileRepository.CheckSubFileExists(connection, toFolderId, folder.Name) // Check file and folder name
+                && !CheckSubFolderExists(connection, toFolderId, folder.Name)
+                && !IsChildren(connection, toFolderId, folderId)) {
+                await connection.UpdateAsync("UPDATE FolderEntity SET ParentId = ? WHERE Id = ?", toFolderId, folderId);
+                progress.Report(new(0, "Moved", true));
+                return true;
+            } else {
                 progress.Report(new(-1, "Failed", true));
                 return false;
             }
-            var nameRows = await connection.SelectAsync<string>(
-                "SELECT Name FROM FolderEntity WHERE ParentId = ?", toFolderId);
-            var folder = await GetFolder(connection, folderId);
-            if (folder == null || nameRows.Select(r => r.Item1).Contains(folder.Name)) {
-                progress.Report(new(-1, "Failed", true));
-                return false;
-            }
-            var rc = await connection.UpdateAsync(
-                "UPDATE FolderEntity SET ParentId = ? WHERE Id = ?", toFolderId, folderId);
-            progress.Report(new(0, "Moved", true));
-            return true;
         }
     }
     public async Task<bool> Copy(long folderId, long toFolderId, IProgress<MovingProgress> progress) {
         using(var db = await _db.GetWriter()) {
             var connection = db.Connection;
-            var rows = await connection.SelectAsync<long>(
-                "SELECT Id FROM FolderEntity WHERE Id IN (?,?)", folderId, toFolderId);
-            if (rows.Count == 0 || (rows.Count == 1 && toFolderId != -1)) {
-                progress.Report(new(-1, "Failed", true));
-                return false;
-            }
-            var nameRows = await connection.SelectAsync<string>(
-                "SELECT Name FROM FolderEntity WHERE ParentId = ?", toFolderId);
-            var folder = await GetFolder(connection, folderId);
-            if (folder == null || nameRows.Select(r => r.Item1).Contains(folder.Name)) {
-                progress.Report(new(-1, "Failed", true));
-                return false;
-            }
-            rows = await connection.SelectAsync<long>(
-                "SELECT ParentId FROM FolderEntity WHERE Id = ?", folderId);
-            if (rows.Count > 0 && rows[0].Item1 ==toFolderId) {
-                progress.Report(new(-1, "Failed", true));
-                return false;
-            }
-            await connection.BeginTransactionAsync();
-            try {
-                Queue<(long fromId, long toId)> folderQ = [];
-                folderQ.Enqueue((folderId, toFolderId));
-                var now = DateTime.Now;
-                while (folderQ.Count > 0) {
-                    progress.Report(new(folderQ.Count, "Moving", false));
-                    (folderId, toFolderId) = folderQ.Dequeue();
-                    // Handle folders
-                    var folders = await GetFolders(connection, folderId);
-                    List<long> originalIds = [];
-                    for(int i=0; i<folders.Count; i++) {
-                        originalIds.Add(folders[i].Id!.Value);
-                        // Reset Id and set parent id
-                        folders[i] = folders[i].WithIdAndParent(-1, toFolderId);
-                    }
-                    var idObjs = await connection.InsertAsync(folders, true);
-                    for (int i = 0; i < folders.Count; i++) {
-                        long returnId = (long)idObjs[i][0];
-                        folderQ.Enqueue((originalIds[i], returnId));
-                    }
-                    // Handle files
-                    var files = await FileRepository.GetFiles(connection, folderId);
-                    originalIds.Clear();
-                    Dictionary<long, long> fileIdMapping = [];
-                    for(int i=0; i<files.Count; i++) {
-                        originalIds.Add(files[i].Id!.Value);
-                        // Reset Id and set folder id
-                        files[i] = files[i].WithIdAndFolder(-1, toFolderId);
-                    }
-                    idObjs  = await connection.InsertAsync(files, true);
-                    for(int i=0; i<files.Count;i++) {
-                        long returnId = (long)idObjs[i][0];
-                        files[i] = files[i].WithId(returnId);
-                        fileIdMapping[originalIds[i]] = returnId;
-                    }
-                    // Handle chunk
-                    var chunkRows = await connection.SelectAsync<long, int, Hash256>($"""
+            if ((toFolderId == -1 || CheckFolderExists(connection, toFolderId))
+                && CheckFolderExists(connection, folderId)
+                && (await GetFolder(connection, folderId)) is FolderEntity folder
+                && folder.ParentId != toFolderId
+                && !CheckSubFolderExists(connection, toFolderId, folder.Name)
+                && !FileRepository.CheckSubFileExists(connection, toFolderId, folder.Name)) {
+                await connection.BeginTransactionAsync();
+                try {
+                    Queue<(long fromId, long toId)> folderQ = [];
+                    // Insert root folder first
+                    var rootFolder = InsertFolderWithReturnId(connection, toFolderId, folder.Name) ?? throw new Exception();
+                    folderQ.Enqueue((folderId, rootFolder.Id!.Value));
+                    var now = DateTime.Now;
+                    while (folderQ.Count > 0) {
+                        progress.Report(new(folderQ.Count, "Moving", false));
+                        (folderId, toFolderId) = folderQ.Dequeue();
+                        // Handle folders
+                        var folders = await GetFolders(connection, folderId);
+                        List<long> originalIds = [];
+                        for (int i = 0; i < folders.Count; i++) {
+                            originalIds.Add(folders[i].Id!.Value);
+                            // Reset Id and set parent id
+                            folders[i] = folders[i].WithIdAndParent(-1, toFolderId);
+                        }
+                        var idObjs = await connection.InsertAsync(folders, true);
+                        for (int i = 0; i < folders.Count; i++) {
+                            long returnId = (long)idObjs[i][0];
+                            folderQ.Enqueue((originalIds[i], returnId));
+                        }
+                        // Handle files
+                        var files = await FileRepository.GetFiles(connection, folderId);
+                        originalIds.Clear();
+                        Dictionary<long, long> fileIdMapping = [];
+                        for (int i = 0; i < files.Count; i++) {
+                            originalIds.Add(files[i].Id!.Value);
+                            // Reset Id and set folder id
+                            files[i] = files[i].WithIdAndFolder(-1, toFolderId);
+                        }
+                        idObjs = await connection.InsertAsync(files, true);
+                        for (int i = 0; i < files.Count; i++) {
+                            long returnId = (long)idObjs[i][0];
+                            files[i] = files[i].WithId(returnId);
+                            fileIdMapping[originalIds[i]] = returnId;
+                        }
+                        // Handle chunk
+                        var chunkRows = await connection.SelectAsync<long, int, Hash256>($"""
                         SELECT * FROM FileChunkRelation
-                        WHERE FileId IN ({GetPlaceholder(files.Count)})
-                        """, files.Select(f => (object)f.Id!.Value).ToArray());
-                    List<FileChunkRelation> chunks = [];
-                    foreach (var row in chunkRows) {
-                        long oldFileId = row.Item1;
-                        long newFileId = fileIdMapping[oldFileId];
-                        chunks.Add(new((newFileId, row.Item2, row.Item3)));
+                        WHERE FileId IN ({GetPlaceholder(originalIds.Count)})
+                        """, originalIds.Cast<object>().ToArray());
+                        List<FileChunkRelation> chunks = [];
+                        Dictionary<Hash256, int> hashIncrease = [];
+                        foreach (var row in chunkRows) {
+                            var hash = row.Item3;
+                            long oldFileId = row.Item1;
+                            long newFileId = fileIdMapping[oldFileId];
+                            chunks.Add(new((newFileId, row.Item2, row.Item3)));
+                            if (hashIncrease.TryGetValue(hash, out var increase)) {
+                                hashIncrease[hash] = increase + 1;
+                            }
+                            else {
+                                hashIncrease[hash] = 1;
+                            }
+                        }
+                        await connection.InsertAsync(chunks, false);
+                        foreach (var (hash, increase) in hashIncrease) {
+                            connection.Update("UPDATE ChunkEntity SET ReferenceCount = ReferenceCount + ? WHERE Hash = ?", increase, hash);
+                        }
                     }
-                    await connection.InsertAsync(chunks, false);
+                    await connection.CommitTransactionAsync();
+                    progress.Report(new(0, "Completed", true));
+                    return true;
                 }
-                await connection.CommitTransactionAsync();
-                progress.Report(new(0, "Completed", true));
-                return true;
+                catch {
+                    await connection.RollbackTransactionAsync();
+                    progress.Report(new(-1, "Failed", true));
+                    return false;
+                }
             }
-            catch {
-                await connection.RollbackTransactionAsync();
+            else {
                 progress.Report(new(-1, "Failed", true));
                 return false;
             }
@@ -214,8 +194,5 @@ internal class FolderRepository {
             return true;
         }
         return false;
-    }
-    private static string GetPlaceholder(int count) {
-        return string.Join(",", Enumerable.Repeat("?", count));
     }
 }

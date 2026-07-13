@@ -1,7 +1,5 @@
 ﻿using AzurArchive.Data.Database.Entities;
 using AzurArchive.Data.Database.Relations;
-using AzurArchive.Data.ServiceImplements;
-using AzurArchive.Data.Services;
 using SQLiteORM;
 using SQLitePCL;
 using System;
@@ -29,13 +27,14 @@ public class DataManager {
             typeof(FileChunkRelation),
             ];
         List<string> beforeCreateTable = [
+            $"PRAGMA page_size={Math.Min(Config.MinChunkSize, 4096)}",
             "PRAGMA auto_vacuum = INCREMENTAL;",
             "VACUUM;"
             ];
-        string dbPath = Path.Join(saveDirectory, "appData.db");
+        string dbPath = Path.Join(saveDirectory, Config.DatabaseName);
         await Database.StartDatabase(dbPath, 2, tables, beforeCreateTable);
         this._syncDatabase = new(dbPath, [], []);
-        string shardFolder = Path.Combine(saveDirectory, "Shards");
+        string shardFolder = Path.Combine(saveDirectory, Config.ShardFolder);
         Directory.CreateDirectory(shardFolder);
         List<Type> shardTables = [
             typeof(ChunkContent)
@@ -46,7 +45,8 @@ public class DataManager {
             shard.Dispose();
         }
     }
-    public async Task Dispose() {
+    public void Dispose() {
         Database.Dispose();
+        _syncDatabase?.Dispose();
     }
 }

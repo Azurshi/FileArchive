@@ -47,17 +47,25 @@ public static class Commands {
             string? path = await ExplorerPicker.PickFolder();
             if (path != null) {
                 if (Directory.Exists(path)) {
-                    if (Directory.GetDirectories(path).Length == 0 && Directory.GetFiles(path).Length == 0) {
+                    if (vm.IsFolder) {
+                        string folderName = Path.Combine(path, vm.Name);
+                        if (Directory.Exists(folderName)) {
+                            Debug.WriteLine("Folder already exists");
+                            return;
+                        }
                         var window = OperationWindow.Create(OperationType.Export);
                         window.Activate();
-                        if (vm.IsFolder) {
-                            await Archiver.RestoreFolder(vm.Id, path, 4, new Progress<ArchiveProgress>(window.Report), window.Token);
-                        } else {
-                            await Archiver.RestoreFile(vm.Id, path, new Progress<ArchiveProgress>(window.Report), window.Token);
-                        }
+                        await Archiver.RestoreFolder(vm.Id, path, 4, new Progress<ArchiveProgress>(window.Report), window.Token);
                     }
                     else {
-                        Debug.WriteLine("Folder does not empty");
+                        string fileName = Path.Combine(path, vm.Name);
+                        if (File.Exists(fileName)) {
+                            Debug.WriteLine("File already exists");
+                            return;
+                        }
+                        var window = OperationWindow.Create(OperationType.Export);
+                        window.Activate();
+                        await Archiver.RestoreFile(vm.Id, path, new Progress<ArchiveProgress>(window.Report), window.Token);
                     }
                 }
                 else {
@@ -91,16 +99,26 @@ public static class Commands {
         });
     public static AsyncCommandExtend<ExplorerItemViewModel> DeleteCommand { get; } = new(
         async (vm) => {
-            if (vm == null || vm.IsFile) {
+            if (vm == null) {
                 return;
             }
             var window = OperationWindow.Create(OperationType.Delete);
             window.Activate();
-            var parentId = await Archiver.DeleteFolder(vm.Id, new Progress<ArchiveProgress>(window.Report), window.Token);
-            if (parentId != null) {
-                ItemDeletedEventArgs args = new(parentId.Value, vm.Id, vm.IsFile);
-                EventSystem.Publish(null, args);
+            if (vm.IsFolder) {
+                var parentId = await Archiver.DeleteFolder(vm.Id, new Progress<ArchiveProgress>(window.Report), window.Token);
+                if (parentId != null) {
+                    ItemDeletedEventArgs args = new(parentId.Value, vm.Id, vm.IsFile);
+                    EventSystem.Publish(null, args);
+                }
             }
+            else {
+                var folerId = await Archiver.DeleteFile(vm.Id, new Progress<ArchiveProgress>(window.Report), window.Token);
+                if (folerId != null) {
+                    ItemDeletedEventArgs args = new(folerId.Value, vm.Id, vm.IsFile);
+                    EventSystem.Publish(null, args);
+                }
+            }
+
         },
         (vm) => {
             return !Archiver.Busy;

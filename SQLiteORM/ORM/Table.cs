@@ -77,7 +77,7 @@ internal static class TableORMConstructor {
             if (extraArgs.Length > 0) {
                 query += ",\n    " + string.Join(",\n    ", extraArgs);
             }
-            query += $"\n) {tableAttribute.AfterTableOption} ;";
+            query += $"\n) {tableAttribute.AfterTableOption} ;\n";
             // Index handle
             List<string> indexes = [];
             foreach(var indexOption in tableAttribute.IndexOptions) {
@@ -90,7 +90,7 @@ internal static class TableORMConstructor {
                 indexes.Add($"CREATE INDEX IF NOT EXISTS IX_{string.Join("_", columns)}_{tableName} ON {tableName}({string.Join(", ", columns)})");
             }
             if (indexes.Count > 0) {
-                query += "\n" + string.Join(" ;\n", indexes);
+                query += string.Join(" ;\n", indexes) + " ;\n";
             }
             return query;
         }

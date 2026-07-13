@@ -94,8 +94,12 @@ public partial class DatabaseContextAsync {
             }
 
             foreach (var type in tables) {
-                string query = TableORMConstructor.ConstructCreateTableString(type);
-                _ = await writer.Connection.ExecuteAsync(query);
+                string queries = TableORMConstructor.ConstructCreateTableString(type);
+                foreach (var query in queries.Split(";")) {
+                    if (query.Trim().Length > 0) {
+                        await writer.Connection.ExecuteAsync(query + ";");
+                    }
+                }
             }
             if (verbose) {
                 Debug.WriteLine("Table created");

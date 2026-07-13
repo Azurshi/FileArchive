@@ -20,8 +20,12 @@ public class DatabaseContext {
             }
         }
         foreach(var type in tables) {
-            string query = TableORMConstructor.ConstructCreateTableString(type);
-            this.Writer.Execute(query);
+            string queries = TableORMConstructor.ConstructCreateTableString(type);
+            foreach(var query in queries.Split(";")) {
+                if (query.Trim().Length > 0) {
+                    this.Writer.Execute(query + ";");
+                }
+            }
         }
         this.Reader = new(path);
     }

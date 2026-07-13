@@ -34,12 +34,17 @@ public sealed partial class CompressedSizeLabel: UserControl {
             _busy = true;
             _command?.NotifyCanExecute();
             var archiver = AppLifeCycle.Service.GetRequiredService<IArchiver>();
-            long size;
-            if (vm.IsFile) {
-                size = await archiver.GetEstimatedFileArchiveSize(vm.Id, CancellationToken.None);
+            long size = 0;
+            try {
+                if (vm.IsFile) {
+                    size = await archiver.GetEstimatedFileArchiveSize(vm.Id, CancellationToken.None);
+                }
+                else {
+                    size = await archiver.GetEstimatedFolderArchiveSize(vm.Id, CancellationToken.None);
+                }
             }
-            else {
-                size = await archiver.GetEstimatedFolderArchiveSize(vm.Id, CancellationToken.None);
+            catch {
+
             }
             This.SetSize(size);
             _busy = false;

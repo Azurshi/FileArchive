@@ -12,6 +12,8 @@
         <TextBlock x:Name="DisplayText"
                    Text="" 
                    Visibility="Collapsed"
-                   VerticalAlignment="Center"/>
+                   VerticalAlignment="Center"
+                   HorizontalAlignment="Right"
+                   HorizontalTextAlignment="Right"/>
     </Grid>
 </UserControl>

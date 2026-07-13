@@ -42,11 +42,11 @@
                     Command="{x:Bind ViewModel.UpCommand, Mode=OneWay}"/>
             <Button Grid.Column="4"
                     Content="Paste"
-                    Command="{x:Bind service:Clipboard.PasteCommand, Mode=OneWay}" 
+                    Command="{x:Bind service:Clipboard.PasteCommand}" 
                     CommandParameter="{x:Bind ViewModel.FolderId, Mode=OneWay}"/>
             <Button Grid.Column="5"
                     Content="Import"
-                    Command="{x:Bind service:Commands.ImportCommand, Mode=OneWay}"
+                    Command="{x:Bind service:Commands.ImportCommand}"
                     CommandParameter="{x:Bind ViewModel.FolderId, Mode=OneWay}" />
             <Button Grid.Column="6"
                     Content="Info" 

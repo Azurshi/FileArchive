@@ -9,8 +9,9 @@
 	  <Nullable>enable</Nullable>
 	  <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
 
+	  <Optimize>true</Optimize>
 	  <Authors>Azurshi</Authors>
-	  <Version>0.0.4</Version>
+	  <Version>0.0.5</Version>
 	  <Description> v0.0: Initial version</Description>
   </PropertyGroup>
   <ItemGroup>
