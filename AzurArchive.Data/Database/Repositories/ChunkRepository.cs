@@ -14,7 +14,7 @@ internal partial class ChunkRepository {
     public async Task<long> GetOriginalByteCount() {
         using(var db = await _db.GetReader()) {
             var rows = await db.Connection.SelectAsync<long?>(
-                "SELECT SUM(OriginalSize) FROM ChunkEntity");
+                "SELECT SUM(OriginalSize*ReferenceCount) FROM ChunkEntity");
             if (rows.Count > 0) {
                 return rows[0].Item1 ?? 0;
             }
