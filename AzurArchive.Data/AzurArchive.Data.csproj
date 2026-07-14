@@ -12,7 +12,7 @@
 
 		<Authors>Azurshi</Authors>
 		<Version Condition="'$(Configuration)' == 'Debug'">0.1.15-preview</Version>
-		<Version Condition="'$(Configuration)' == 'Release'">0.1.16</Version>
+		<Version Condition="'$(Configuration)' == 'Release'">0.1.18</Version>
 		<Description> v0.0: Initial version. v0.1: Refactor and improve data correctness.</Description>
 	</PropertyGroup>
 	<ItemGroup>

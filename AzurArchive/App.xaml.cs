@@ -36,6 +36,7 @@ public partial class App: Application {
     private void ConfigureLifeCycle(IServiceProvider provider) {
         AppLifeCycle.RegisterAppStart(async () => {
             DataManager dataManager = provider.GetRequiredService<DataManager>();
+            Directory.CreateDirectory("Data");
             await dataManager.Start("Data");
         });
 #if DEBUG
