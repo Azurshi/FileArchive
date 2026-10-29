@@ -53,11 +53,13 @@ public static class Clipboard {
         }
         else if (_package is FolderPackage folderPackage) {
             var folderService = AppLifeCycle.Service.GetRequiredService<IFolderService>();
-            return !folderService.ContainFolder(folderId, folderPackage.Id);
+            //return !folderService.ContainFolder(folderId, folderPackage.Id);
+            return false;
         }
         else if (_package is FilePackage filePackage) {
             var folderService = AppLifeCycle.Service.GetRequiredService<IFolderService>();
-            return !folderService.ContainFile(folderId, filePackage.Id);
+            //return !folderService.ContainFile(folderId, filePackage.Id);
+            return false;
         }
         return true;
     }

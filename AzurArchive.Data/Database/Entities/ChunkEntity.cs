@@ -8,12 +8,12 @@ internal class ChunkEntity {
     [DatabaseField] public int ReferenceCount { get; init; }
     [DatabaseField] public int OriginalSize { get; init; }
     [DatabaseField] public int CompressedSize { get; init; }
-    [DatabaseField] public int CompressLevel { get; init; }
-    public ChunkEntity((Hash256 Hash, int ReferenceCount, int OriginalSize, int CompressedSize, int CompressLevel) t) {
+    [DatabaseField] public int CompressionLevel { get; init; }
+    public ChunkEntity((Hash256 Hash, int ReferenceCount, int OriginalSize, int CompressedSize, int CompressionLevel) t) {
         this.Hash = t.Hash;
         this.ReferenceCount = t.ReferenceCount;
         this.OriginalSize = t.OriginalSize;
         this.CompressedSize = t.CompressedSize;
-        this.CompressLevel = t.CompressLevel;
+        this.CompressionLevel = t.CompressionLevel;
     }
 }

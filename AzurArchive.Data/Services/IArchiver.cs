@@ -30,14 +30,10 @@ public class MovingProgress {
 public interface IArchiver {
     public bool Busy { get; }
     public event EventHandler? BusyChanged;
-    public Task<FolderEntry?> ImportFolder(long folderId, string inputFolderPath, int nWorkers, IProgress<ArchiveProgress> progress, CancellationToken token);
-    public Task<FileEntry?> ImportFile(long folderId, string inputFilePath, IProgress<ArchiveProgress> progress, CancellationToken token);
-    public Task<bool> RestoreFolder(long folderId, string outputFolderPath, int nWorkers, IProgress<ArchiveProgress> progress, CancellationToken token);
-    public Task<bool> RestoreFile(long fileId, string outputFolderPath, IProgress<ArchiveProgress> progress, CancellationToken token);
-    public Task<long> GetEstimatedFileArchiveSize(long fileId, CancellationToken token);
-    public Task<long> GetEstimatedFolderArchiveSize(long folderId, CancellationToken token);
+    public Task<Entry?> Import(long folderId, string inputPath, int nWorkers, IProgress<ArchiveProgress> progress, CancellationToken token);
+    public Task<bool> Restore(long entryId, string outputFolderPath, int nWorkers, IProgress<ArchiveProgress> progress, CancellationToken token);
+    public Task<long?> Delete(long entryId, IProgress<ArchiveProgress> progress, CancellationToken token);
+    public Task<long> GetEstimatedArchiveSize(long entryId, CancellationToken token);
     public Task<long> GetOriginalByteCount(CancellationToken token);
     public Task<long> GetCompressedByteCount(CancellationToken token);
-    public Task<long?> DeleteFolder(long folderId, IProgress<ArchiveProgress> progress, CancellationToken token);
-    public Task<long?> DeleteFile(long fileId, IProgress<ArchiveProgress> progress, CancellationToken token);
 }

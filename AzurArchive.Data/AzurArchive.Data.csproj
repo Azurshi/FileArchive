@@ -11,9 +11,9 @@
 		<Optimize Condition="'$(Configuration)' == 'Release'">true</Optimize>
 
 		<Authors>Azurshi</Authors>
-		<Version Condition="'$(Configuration)' == 'Debug'">0.1.15-preview</Version>
-		<Version Condition="'$(Configuration)' == 'Release'">0.1.18</Version>
-		<Description> v0.0: Initial version. v0.1: Refactor and improve data correctness.</Description>
+		<Version Condition="'$(Configuration)' == 'Debug'">0.2.4-preview</Version>
+		<Version Condition="'$(Configuration)' == 'Release'">0.2.1</Version>
+		<Description> v0.0: Initial version. v0.1: Refactor and improve data correctness. v0.2: Change database schemas.</Description>
 	</PropertyGroup>
 	<ItemGroup>
 		<PackageReference Include="Blake3" Version="2.2.1" />
@@ -21,7 +21,7 @@
 		<PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="10.0.9" />
 		<PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.28000.1839" />
 		<PackageReference Include="Microsoft.WindowsAppSDK" Version="2.0.1" />
-		<PackageReference Include="SQLiteORM" Version="0.3.19" />
+		<PackageReference Include="SQLiteORM" Version="0.3.20" />
 		<PackageReference Include="ZstdNet" Version="1.5.7" />
 	</ItemGroup>
 	<ItemGroup>

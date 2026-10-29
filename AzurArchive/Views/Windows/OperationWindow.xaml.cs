@@ -76,12 +76,12 @@ public sealed partial class OperationWindow: Window {
     }
     public void Report(ArchiveProgress p) {
         //Debug.WriteLine("Reporting");
-        if (p.Total >= 0 && p.Current >= 0) {
-            this.ProgressDisplay.Maximum = p.Total;
-            this.ProgressDisplay.Value = p.Current;
-            this.ProgressText.Text = $"{p.Current} / {p.Total}";
-        }
-        this.MessageText.Text = p.Message;
+        //if (p.Total >= 0 && p.Current >= 0) {
+        //    //this.ProgressDisplay.Maximum = p.Total;
+        //    //this.ProgressDisplay.Value = p.Current;
+        //    //this.ProgressText.Text = $"{p.Current} / {p.Total}";
+        //}
+        //this.MessageText.Text = p.Message;
         if (p.Completed && !this._closed) {
             this.HandleClose().FireAndForgetAsync();
         }

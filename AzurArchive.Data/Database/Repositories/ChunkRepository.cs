@@ -1,4 +1,5 @@
 ﻿using SQLiteORM;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
@@ -76,6 +77,7 @@ internal partial class ChunkRepository {
             return (long)value;
         }
     }
+    [Obsolete]
     public async Task<long> GetEstimatedFolderArchiveSize(long folderId, CancellationToken token) {
         using(var db = await _db.GetReader()) {
             if (token.IsCancellationRequested) {

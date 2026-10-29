@@ -18,8 +18,7 @@ public static class ServiceCollectionExtensions {
 
         // Database
         services.AddSingleton<ChunkRepository>();
-        services.AddSingleton<FileRepository>();
-        services.AddSingleton<FolderRepository>();
+        services.AddSingleton<EntryRepository>();
         services.AddSingleton<ArchiveRepository>();
 
         // Data

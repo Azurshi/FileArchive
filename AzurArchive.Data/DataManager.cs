@@ -1,5 +1,4 @@
 ﻿using AzurArchive.Data.Database.Entities;
-using AzurArchive.Data.Database.Relations;
 using SQLiteORM;
 using SQLitePCL;
 using System;
@@ -21,10 +20,9 @@ public class DataManager {
         this._saveDirectory = saveDirectory;
         Batteries_V2.Init();
         List<Type> tables = [
-            typeof(FolderEntity), typeof(FileEntity),
+            typeof(EntryEntity), typeof(EntryContentEntity),
             typeof(ChunkEntity),
 
-            typeof(FileChunkRelation),
             ];
         List<string> beforeCreateTable = [
             $"PRAGMA page_size={Math.Min(Config.MinChunkSize, 4096)}",

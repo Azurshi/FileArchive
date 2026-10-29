@@ -1,6 +1,7 @@
 ﻿using SQLiteORM.Internal;
 using SQLitePCL;
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
@@ -38,6 +39,7 @@ public partial class SQLiteReadConnection : SQLiteConnection {
             }
         }
     }
+    [Obsolete("Use Iterate instead")]
     public IEnumerable<int> Select(string sql, Action<ReadOnlySpan<byte>> consumer, params object[] args) {
         using (sqlite3_stmt stmt = Preprate(sql)) {
             for (int i = 0; i < args.Length; i++) {
@@ -58,6 +60,25 @@ public partial class SQLiteReadConnection : SQLiteConnection {
                     throw new Exception("Select error: " + raw.sqlite3_errmsg(this._database).utf8_to_string());
                 }
                 index++;
+            }
+        }
+    }
+    public IEnumerable<sqlite3_stmt> Iterate(string sql, params object[] args) {
+        using (sqlite3_stmt stmt = Preprate(sql)) {
+            for (int i = 0; i < args.Length; i++) {
+                TypeMap.BindMap(stmt, i + 1, args[i]);
+            }
+            while (true) {
+                int rc = raw.sqlite3_step(stmt);
+                if (rc == raw.SQLITE_ROW) {
+                    yield return stmt;
+                }
+                else if (rc == raw.SQLITE_DONE) {
+                    yield break;
+                }
+                else {
+                    throw new Exception("Select error: " + raw.sqlite3_errmsg(this._database).utf8_to_string());
+                }
             }
         }
     }

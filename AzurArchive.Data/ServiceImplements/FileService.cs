@@ -8,51 +8,52 @@ using System;
 namespace AzurArchive.Data.ServiceImplemments;
 
 internal class FileService: IFileService {
-    private readonly FileRepository _fileRepo;
-    public FileService(FileRepository fileRepository) {
-        this._fileRepo = fileRepository;
+    private readonly EntryRepository _entryRepo;
+    public FileService(EntryRepository entryRepository) {
+        this._entryRepo = entryRepository;
     }
-    private static FileEntry ToEntry(FileEntity entity) {
-        return new(entity.FolderId, entity.Id!.Value, entity.Name, entity.CreationTime, entity.ModifiedTime, entity.OriginalSize);
+    public async Task<bool> Copy(long fileId, long toFolderId, IProgress<MovingProgress> progress) {
+        await LockManager.ModifyLock.WaitAsync();
+        try {
+            return await this._entryRepo.Copy(fileId, toFolderId, progress);
+        }
+        finally {
+            LockManager.ModifyLock.Release();
+        }
     }
 
-    public Task<bool> Copy(long fileId, long toFolderId, IProgress<MovingProgress> progress) {
-        return this._fileRepo.Copy(fileId, toFolderId, progress);
-    }
-
-    public async Task<FileEntry?> Get(long fileId) {
-        var entity = await this._fileRepo.GetFile(fileId);
+    public async Task<Entry?> Get(long fileId) {
+        var entity = await this._entryRepo.Get(fileId);
         if (entity != null) {
-            return ToEntry(entity);
+            return Entry.FromEntity(entity);
         }
         return null;
     }
 
-    public async Task<List<FileEntry>> GetFiles(long folderId) {
-        var entities = await this._fileRepo.GetFiles(folderId);
-        List<FileEntry> result = [];
+    public async Task<List<Entry>> GetFiles(long folderId) {
+        var entities = await this._entryRepo.GetChildren(folderId);
+        List<Entry> result = [];
         foreach(var entity in entities) {
-            result.Add(ToEntry(entity));
+            result.Add(Entry.FromEntity(entity));
         }
         return result;
     }
 
-    public Task<List<string>> GetPath(long folderId) {
-        return this._fileRepo.GetPath(folderId);
+    public async Task<List<string>> GetPath(long folderId) {
+        return await this._entryRepo.GetPath(folderId);
     }
 
     public async Task<bool> Move(long fileId, long toFolderId, IProgress<MovingProgress> progress) {
-        await LockManager.LargeModifyLock.WaitAsync();
+        await LockManager.ModifyLock.WaitAsync();
         try {
-            return await this._fileRepo.Move(fileId, toFolderId, progress);
+            return await this._entryRepo.Move(fileId, toFolderId, progress);
         }
         finally {
-            LockManager.LargeModifyLock.Release();
+            LockManager.ModifyLock.Release();
         }
     }
 
     public async Task<bool> RenameFile(long fileId, string fileName) {
-        return await this._fileRepo.RenameFile(fileId, fileName);
+        return await this._entryRepo.Rename(fileId, fileName);
     }
-
 }

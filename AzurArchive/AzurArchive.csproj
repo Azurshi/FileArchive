@@ -25,6 +25,9 @@
 		<Description> v0.0: Initial version. v0.1: Refactor and improve data correctness.</Description>
 	</PropertyGroup>
 	<ItemGroup>
+		<ProjectReference Include="..\AzurArchive.Data\AzurArchive.Data.csproj" />
+	</ItemGroup>
+	<ItemGroup>
 	  <None Remove="Domain\ConfigUI.xaml" />
 	  <None Remove="Views\Controls\CompressedSizeLabel.xaml" />
 	  <None Remove="Views\Controls\FileExplorer.xaml" />
@@ -54,7 +57,6 @@
 	</ItemGroup>
 
 	<ItemGroup>
-		<PackageReference Include="AzurArchive.Data" Version="0.1.18" />
 		<PackageReference Include="Microsoft.Extensions.Caching.Memory" Version="10.0.8" />
 		<PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.8" />
 		<PackageReference Include="Microsoft.Extensions.Http" Version="10.0.8" />

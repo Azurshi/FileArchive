@@ -35,23 +35,12 @@ internal partial class ChunkContentWriter: IDisposable {
             shard.CommitTransaction();
         }
     }
-    public void InsertChunks(IReadOnlyList<ChunkContentTempory> chunks) {
-        List<List<ChunkContentTempory>> distributedChunks = [];
-        for (int i = 0; i < Config.Shards; i++) {
-            distributedChunks.Add([]);
-        }
-        foreach (var chunk in chunks) {
-            int shardIndex = chunk.Hash.ShardIndex;
-            distributedChunks[shardIndex].Add(chunk);
-        }
-        for (int i = 0; i < Config.Shards; i++) {
-            var shard = this._shards[i];
-            shard.Insert(distributedChunks[i], false);
-        }
-    }
     public void InserChunk(Hash256 hash, Memory<byte> memory) {
         var shard = this._shards[hash.ShardIndex];
-        shard.Insert([new ChunkContentTempory((hash, memory))], false);
+        shard.Execute("""
+            INSERT INTO ChunkContent (Hash, Content)
+            VALUES (?, ?)
+            """, hash, memory);
     }
     public void DeleteChunks(IReadOnlyList<Hash256> hashes) {
         List<List<Hash256>> distributedHashes = [];
@@ -144,14 +133,9 @@ internal partial class ChunkContentReader: IDisposable {
             """, hash).ToList();
         return rows[0].Item1;
     }
-    public void ProcessContent(Hash256 hash, Action<ReadOnlySpan<byte>> consumer) {
-        var reader = this._shards[hash.ShardIndex];
-        var rows = reader.Select($"""
-            SELECT Content FROM ChunkContent
-            WHERE Hash = ?
-            """, consumer, hash).ToList();
+    public SQLiteReadConnection GetConnection(Hash256 hash) {
+        return this._shards[hash.ShardIndex];
     }
-
     public void Dispose() {
         foreach(var shard in _shards) {
             shard.Dispose(false);

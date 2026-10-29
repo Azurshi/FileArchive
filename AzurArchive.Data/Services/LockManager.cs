@@ -3,5 +3,5 @@
 namespace AzurArchive.Data.Services;
 
 internal static class LockManager {
-    public static SemaphoreSlim LargeModifyLock = new(1);
+    public static SemaphoreSlim ModifyLock = new(1);
 }

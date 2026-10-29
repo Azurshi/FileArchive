@@ -68,7 +68,7 @@ public partial class ExplorerWindowViewModel: ObservableObject {
         }, () => !this._busy && _stack.CanForward());
         this.RefreshCommand = new(Refresh, () => !_busy);
         this.UpCommand = new(async () => {
-            FolderEntry? folder = await _folderSerivce.Get(_folderId);
+            Entry? folder = await _folderSerivce.Get(_folderId);
             if (folder != null) {
                 await SetId(folder.ParentId);
             }
@@ -81,8 +81,8 @@ public partial class ExplorerWindowViewModel: ObservableObject {
     }
     private void HookSignal() {
         async Task CheckAndRefresh(long id, bool isFile) {
-            if ((isFile && _folderSerivce.ContainFile(_folderId, id))
-                || (!isFile && _folderSerivce.ContainFolder(_folderId, id))) {
+            if ((isFile && await _folderSerivce.ContainFile(_folderId, id))
+                || (!isFile && await _folderSerivce.ContainFolder(_folderId, id))) {
                 await Refresh();
             }
         }
@@ -105,10 +105,10 @@ public partial class ExplorerWindowViewModel: ObservableObject {
         List<string> path = await _folderSerivce.GetPath(_folderId);
         this.FolderPath = string.Join("\\", path);
         OnPropertyChanged(nameof(FolderPath));
-        FolderEntry? currentFolder = await _folderSerivce.Get(_folderId);
+        Entry? currentFolder = await _folderSerivce.Get(_folderId);
         WindowNameChangeRequest?.Invoke(this, currentFolder?.Name ?? "Home");
-        List<FolderEntry> folders = await _folderSerivce.GetFolders(_folderId);
-        List<FileEntry> files = await _fileService.GetFiles(_folderId);
+        List<Entry> folders = await _folderSerivce.GetFolders(_folderId);
+        List<Entry> files = await _fileService.GetFiles(_folderId);
         List<ExplorerItemViewModel> items = [];
         foreach (var folder in folders) {
             items.Add(new(folder, this.HeaderInfo));

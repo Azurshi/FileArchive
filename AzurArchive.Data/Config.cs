@@ -8,6 +8,7 @@ internal static class Config {
     public const int MaxChunkSize = KB * 64;
     public const int ChunkBufferSize = MB * 1;
     public const int MaxParameterCount = 32766;
+    public const int FileContentBufferInitialSize = MB * 1;
 
     public const int SaveDelayMs = 1000 * 5;
 

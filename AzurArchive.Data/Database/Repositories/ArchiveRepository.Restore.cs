@@ -1,9 +1,13 @@
-﻿using AzurArchive.Data.Services;
+﻿using AzurArchive.Data.Database.Entities;
+using AzurArchive.Data.Services;
 using SQLiteORM;
+using SQLitePCL;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using ZstdNet;
@@ -11,100 +15,94 @@ using ZstdNet;
 namespace AzurArchive.Data.Database.Repositories;
 
 internal partial class ArchiveRepository {
-    private static List<FileToArchive> GetFiles(SQLiteReadConnection connection, long rootFolderId, string outputFolderPath) {
-        // Handle first folder
-        Queue<(long Id, string Path)> folderQ = [];
-        List<FileToArchive> result = [];
-        var firstFolderRows = connection.Select<string>($"""
-                SELECT Name FROM FolderEntity
-                WHERE Id = ?
-                """, rootFolderId).ToList();
-        if (firstFolderRows.Count > 0) {
-            string firstFolderPath = Path.Join(outputFolderPath, firstFolderRows[0].Item1);
-            Directory.CreateDirectory(firstFolderPath);
-            folderQ.Enqueue((rootFolderId, firstFolderPath));
-        }
-        else {
-            throw new KeyNotFoundException();
-        }
-        // Handle Folder and File scan
-        while (folderQ.Count > 0) {
-            var (folderId, folderPath) = folderQ.Dequeue();
-            var folderRows = connection.Select<long, string>($"""
-                    SELECT Id, Name FROM FolderEntity
-                    WHERE ParentId = ?
-                    """, folderId);
-            foreach (var row in folderRows) {
-                string subFolderPath = Path.Combine(folderPath, row.Item2);
-                folderQ.Enqueue((row.Item1, subFolderPath));
-                Directory.CreateDirectory(subFolderPath);
+    // Return list of (File entry, Output folder path)
+    private static List<ValueTuple<EntryEntity, string>> RestoreFolderAndScanFile(SQLiteReadConnection connection, long rootId, string rootFolderPath) {
+        List<ValueTuple<EntryEntity, string>> result = [];
+        // Id, Parent folder path
+        Queue<ValueTuple<long, string>> q = [];
+        q.Enqueue((rootId, rootFolderPath));
+        while(q.Count > 0) {
+            var (entryId, folderPath) = q.Dequeue();
+            var children = EntryRepository.GetChildren(connection, entryId);
+            foreach(var child in children) {
+                if (child.IsFolder()) {
+                    var childFolderPath = Path.Join(folderPath, child.Name);
+                    q.Enqueue((child.Id!.Value, childFolderPath));
+                    if (!Directory.Exists(childFolderPath)) {
+                        Directory.CreateDirectory(childFolderPath);
+                    }
+                }
+                else {
+                    result.Add((child, folderPath));
+                }
             }
-            var fileRows = connection.Select<long, string>($"""
-                    SELECT Id, Name FROM FileEntity
-                    WHERE FolderId = ?
-                    """, folderId);
-            foreach (var row in fileRows) {
-                string filePath = Path.Combine(folderPath, row.Item2);
-                result.Add(new(row.Item1, row.Item2, filePath));
-            }
-
         }
         return result;
     }
-    private static void RestoreFiles(List<FileToArchive> files, string saveDirectory, int nWorkers, IProgress<ArchiveProgress> progress, CancellationToken token) {
-        int fileCount = files.Count;
+    private static void RestoreFiles(string saveDirectory, List<ValueTuple<EntryEntity, string>> fileDtos, int nWorkers, IProgress<ArchiveProgress> progress, CancellationToken token) {
+        int fileCount = fileDtos.Count;
         string dbPath = Path.Join(saveDirectory, Config.DatabaseName);
         // Per-thread resources
         SQLiteReadConnection[] readers = new SQLiteReadConnection[nWorkers];
         ChunkContentReader[] chunkReaders = new ChunkContentReader[nWorkers];
         Memory<byte>[] compressBuffers = new Memory<byte>[nWorkers];
+        Memory<byte>[] fileHashesBuffers = new Memory<byte>[nWorkers];
         Decompressor[] decompressors = new Decompressor[nWorkers];
         for (int i = 0; i < nWorkers; i++) {
             readers[i] = new(dbPath);
             chunkReaders[i] = new ChunkContentReader(saveDirectory);
             compressBuffers[i] = new byte[Config.MaxChunkSize];
+            fileHashesBuffers[i] = new byte[Config.FileContentBufferInitialSize];
             decompressors[i] = new();
         }
-        // Job description
-        void Job(int tIndex, int fileIndex, FileToArchive file, CancellationToken token) {
-            progress.Report(new(fileIndex + 1, fileCount, $"Extracting: {file.AbsPath}", false));
+        void Job(int tIndex, int fileIndex, EntryEntity fileEntry, string outputFolder, CancellationToken token) {
+            progress.Report(new(fileIndex + 1, fileCount, $"Extracting: {Path.Join(outputFolder, fileEntry.Name)}", false));
             token.ThrowIfCancellationRequested();
             var reader = readers[tIndex];
             var chunkReader = chunkReaders[tIndex];
-            var compressBuffer = compressBuffers[tIndex];
+            var compressBuffer = compressBuffers[tIndex].Span;
             var decompressor = decompressors[tIndex];
-            var hashRows = reader.Select<Hash256>($"""
-                SELECT Hash FROM FileChunkRelation
-                WHERE FileId = ?
-                ORDER BY OrderIndex ASC
-                """, file.Id);
-            var chunkRows = reader.Select<Hash256, int>($"""
-                SELECT Hash, CompressLevel
-                FROM ChunkEntity
-                WHERE Hash IN (
-                    SELECT DISTINCT Hash FROM FileChunkRelation
-                    WHERE FileId = ?
-                )
-                """, file.Id);
-            Dictionary<Hash256, int> configMap = [];
-            foreach (var row in chunkRows) {
-                configMap[row.Item1] = row.Item2;
+            var fileHashesBuffer = fileHashesBuffers[tIndex].Span;
+            foreach(var stmt in reader.Iterate("""
+                SELECT Content FROM EntryContentEntity
+                WHERE Id = ?
+                """, fileEntry.Id!.Value)) {
+                var span = raw.sqlite3_column_blob(stmt, 0);
+                if (span.Length > fileHashesBuffer.Length) {
+                    var newLength = fileHashesBuffer.Length * 2;
+                    var newBuffer = new byte[newLength];
+                    fileHashesBuffers[tIndex] = newBuffer;
+                    fileHashesBuffer = newBuffer;
+                }
+                span.CopyTo(fileHashesBuffer);
+                fileHashesBuffer = fileHashesBuffer[..span.Length];
+                break;
             }
-            using (var stream = File.OpenWrite(file.AbsPath)) {
-                foreach (var hash in hashRows.Select(r => r.Item1)) {
+            using (var stream = File.OpenWrite(Path.Join(outputFolder, fileEntry.Name))) {
+                for (int offset = 0; offset < fileHashesBuffer.Length; offset += 32) {
                     token.ThrowIfCancellationRequested();
-                    void ConsumeChunk(ReadOnlySpan<byte> content) {
-                        var level = configMap[hash];
-                        if (level > 0) {
-                            int decompressedSize = decompressor.Unwrap(content, compressBuffer.Span, false);
-                            ReadOnlyMemory<byte> decompressed = compressBuffer[..decompressedSize];
-                            stream.Write(decompressed.Span);
+                    Hash256 hash = new();
+                    fileHashesBuffer.Slice(offset, 32).CopyTo(hash.AsSpan());
+                    var compressionLevel = reader.Select<int>("""
+                        SELECT CompressionLevel FROM ChunkEntity
+                        WHERE Hash = ?
+                        """, hash).First().Item1;
+                    var chunkConnection = chunkReader.GetConnection(hash);
+                    foreach (var stmt in chunkConnection.Iterate("""
+                        SELECT Content FROM ChunkContent
+                        WHERE Hash = ?
+                        """, hash)) {
+                        var content = raw.sqlite3_column_blob(stmt, 0);
+                        if (compressionLevel > 0) {
+                            int decompressedSize = decompressor.Unwrap(content, compressBuffer, false);
+                            var decompressed = compressBuffer[..decompressedSize];
+                            stream.Write(decompressed);
                         }
                         else {
                             stream.Write(content);
                         }
+                        break;
                     }
-                    chunkReader.ProcessContent(hash, ConsumeChunk);
                 }
             }
         }
@@ -128,8 +126,8 @@ internal partial class ArchiveRepository {
                             }
                             fileIndex = nextFile++;
                         }
-                        var file = files[fileIndex];
-                        Job(workerIndex, fileIndex, file, token);
+                        var (file, folder) = fileDtos[fileIndex];
+                        Job(workerIndex, fileIndex, file, folder, token);
                     }
                 });
             }
@@ -146,45 +144,17 @@ internal partial class ArchiveRepository {
             }
         }
     }
-    public bool RestoreFolder(long folderId, string outputFolderPath, int nWorkers, IProgress<ArchiveProgress> progress, CancellationToken token) {
+    public bool RestoreEntry(long entryId, string outputFolderPath, int nWorkers, IProgress<ArchiveProgress> progress, CancellationToken token) {
         string dbPath = Path.Join(this._saveFolder, Config.DatabaseName);
         SQLiteReadConnection reader = new(dbPath);
         try {
-            // Get file data
-            var files = GetFiles(reader, folderId, outputFolderPath);
-            // Restore file
-            RestoreFiles(files, this._saveFolder, nWorkers, progress, token);
+            var fileDtos = RestoreFolderAndScanFile(reader, entryId, outputFolderPath);
+            RestoreFiles(this._saveFolder, fileDtos, nWorkers, progress, token);
             progress.Report(new(-1, -1, "Completed", true));
             return true;
         }
-        catch {
-            progress.Report(new(-1, -1, "Failed", false));
-            return false;
-        }
-        finally {
-            reader.Dispose(false);
-        }
-    }
-    public bool RestoreFile(long fileId, string outputFolderPath, IProgress<ArchiveProgress> progress, CancellationToken token) {
-        string dbPath = Path.Join(this._saveFolder, Config.DatabaseName);
-        SQLiteReadConnection reader = new(dbPath);
-        try {
-            // Get file data
-            var rows = reader.Select<string>(
-                "SELECT Name FROM FileEntity WHERE Id = ?", fileId).ToList();
-            if (rows.Count == 0) {
-                throw new KeyNotFoundException();
-            }
-            string fileName = rows[0].Item1;
-            string filePath = Path.Combine(outputFolderPath, fileName);
-            token.ThrowIfCancellationRequested();
-            Directory.CreateDirectory(outputFolderPath);
-            // Restore file
-            RestoreFiles([new(fileId, fileName, filePath)], this._saveFolder, 1, progress, token);
-            progress.Report(new(-1, -1, "Completed", true));
-            return true;
-        }
-        catch {
+        catch (Exception e){
+            Debug.WriteLine(e);
             progress.Report(new(-1, -1, "Failed", false));
             return false;
         }

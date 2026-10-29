@@ -8,74 +8,70 @@ using System;
 namespace AzurArchive.Data.ServiceImplemments;
 
 internal class FolderService: IFolderService {
-    private readonly FolderRepository _folderRepo;
-    public FolderService(FolderRepository folderRepository) {
-        this._folderRepo = folderRepository;
-    }
-    private static FolderEntry ToEntry(FolderEntity entity) {
-        return new(entity.ParentId, entity.Id!.Value, entity.Name, entity.CreationTime, entity.ModifiedTime);
+    private readonly EntryRepository _entryRepo;
+    public FolderService(EntryRepository entryRepository) {
+        this._entryRepo = entryRepository;
     }
 
-    public bool ContainFile(long folderId, long childrenId) {
-        return this._folderRepo.ContainFile(folderId, childrenId);
+    public Task<bool> ContainFile(long folderId, long childrenId) {
+        return this._entryRepo.Contain(folderId, childrenId);
     }
 
-    public bool ContainFolder(long folderId, long childrenId) {
-        return this._folderRepo.ContainFolder(folderId, childrenId);
+    public Task<bool> ContainFolder(long folderId, long childrenId) {
+        return this._entryRepo.Contain(folderId, childrenId);
     }
 
     public async Task<bool> Copy(long folderId, long toFolderId, IProgress<MovingProgress> progress) {
-        await LockManager.LargeModifyLock.WaitAsync();
+        await LockManager.ModifyLock.WaitAsync();
         try {
-            return await this._folderRepo.Copy(folderId, toFolderId, progress);
+            return await this._entryRepo.Copy(folderId, toFolderId, progress);
         }
         finally {
-            LockManager.LargeModifyLock.Release();
+            LockManager.ModifyLock.Release();
         }
     }
 
-    public async Task<FolderEntry?> CreateFolder(long parentId, string folderName) {
-        var entity = await _folderRepo.CreateFolder(parentId, folderName);
+    public async Task<Entry?> CreateFolder(long parentId, string folderName) {
+        var entity = await this._entryRepo.CreateFolder(parentId, folderName);
         if (entity != null) {
-            return ToEntry(entity);
+            return Entry.FromEntity(entity);
         } else {
             return null;
         }
     }
 
-    public async Task<FolderEntry?> Get(long folderId) {
-        var entity = await _folderRepo.GetFolder(folderId);
+    public async Task<Entry?> Get(long folderId) {
+        var entity = await this._entryRepo.Get(folderId);
         if (entity != null) {
-            return ToEntry(entity);
-        } else {
-            return null;
+            return Entry.FromEntity(entity);
         }
+        return null;
     }
 
-    public async Task<List<FolderEntry>> GetFolders(long parentId) {
-        var entities = await _folderRepo.GetFolders(parentId);
-        List<FolderEntry> result = [];
-        foreach(var entity in entities) {
-            result.Add(ToEntry(entity));
+    public async Task<List<Entry>> GetFolders(long parentId) {
+        var entities = await this._entryRepo.GetChildren(parentId);
+        List<Entry> result = [];
+        foreach (var entity in entities) {
+            result.Add(Entry.FromEntity(entity));
         }
         return result;
     }
 
-    public Task<List<string>> GetPath(long folderId) {
-        return this._folderRepo.GetPath(folderId);
+    public async Task<List<string>> GetPath(long folderId) {
+        return await this._entryRepo.GetPath(folderId);
     }
 
     public async Task<bool> Move(long folderId, long toFolderId, IProgress<MovingProgress> progress) {
-        await LockManager.LargeModifyLock.WaitAsync();
+        await LockManager.ModifyLock.WaitAsync();
         try {
-            return await this._folderRepo.Move(folderId, toFolderId, progress);
+            return await this._entryRepo.Move(folderId, toFolderId, progress);
         }
         finally {
-            LockManager.LargeModifyLock.Release();
+            LockManager.ModifyLock.Release();
         }
     }
 
-    public async Task<bool> RenameFolder(long fiolderId, string folderName) {
-        return await this._folderRepo.RenameFolder(fiolderId, folderName);
+    public async Task<bool> RenameFolder(long folderId, string folderName) {
+        return await this._entryRepo.Rename(folderId, folderName);
     }
 }
