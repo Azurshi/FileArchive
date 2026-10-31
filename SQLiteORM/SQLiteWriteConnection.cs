@@ -74,6 +74,20 @@ public partial class SQLiteWriteConnection : SQLiteReadConnection {
         }
         return primaryKeys;
     }
+    public IEnumerable<sqlite3_stmt> IterateExecute(string sql) {
+        using (sqlite3_stmt stmt = Preprate(sql)) {
+            while (true) {
+                yield return stmt;
+                int rc = raw.sqlite3_step(stmt);
+                if (rc != raw.SQLITE_DONE && rc != raw.SQLITE_ROW) {
+                    Debug.WriteLine("Insert error: " + raw.sqlite3_errmsg(_database).utf8_to_string());
+                }
+                // Cleanup
+                raw.sqlite3_reset(stmt);
+                raw.sqlite3_clear_bindings(stmt);
+            }
+        }
+    }
     public int Update<T>(T item, string condition, params object?[] args) where T : class {
         Type type = typeof(T);
         if (!_updateCaches.TryGetValue(type, out var cachedReflection)) {

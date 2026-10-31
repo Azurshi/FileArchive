@@ -1,8 +1,10 @@
 ﻿using AzurArchive.Data.Database.Entities;
 using AzurArchive.Data.Services;
 using SQLiteORM;
+using SQLitePCL;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Threading;
@@ -35,23 +37,15 @@ internal partial class ChunkContentWriter: IDisposable {
             shard.CommitTransaction();
         }
     }
-    public void InsertChunks(IReadOnlyList<ChunkContentTempory> chunks) {
-        List<List<ChunkContentTempory>> distributedChunks = [];
-        for (int i = 0; i < Config.Shards; i++) {
-            distributedChunks.Add([]);
-        }
-        foreach (var chunk in chunks) {
-            int shardIndex = chunk.Hash.ShardIndex;
-            distributedChunks[shardIndex].Add(chunk);
-        }
-        for (int i = 0; i < Config.Shards; i++) {
-            var shard = this._shards[i];
-            shard.Insert(distributedChunks[i], false);
-        }
-    }
     public void InserChunk(Hash256 hash, Memory<byte> memory) {
         var shard = this._shards[hash.ShardIndex];
-        shard.Insert([new ChunkContentTempory((hash, memory))], false);
+        shard.Execute("""
+            INSERT INTO ChunkContent (Hash, Content)
+            VALUES (?, ?)
+            """, hash, memory);
+    }
+    public ChunkContentRepository.InsertSession CreateInsertSession() {
+        return new(this._shards);
     }
     public void DeleteChunks(IReadOnlyList<Hash256> hashes) {
         List<List<Hash256>> distributedHashes = [];
@@ -64,13 +58,17 @@ internal partial class ChunkContentWriter: IDisposable {
         for (int i = 0; i < Config.Shards; i++) {
             var shard = this._shards[i];
             var items = distributedHashes[i];
-            var batches = items.Chunk(Config.MaxParameterCount).Select(c => c.ToList());
-            foreach(var batch in batches) {
-                shard.Delete($"""
-                    DELETE FROM ChunkContent
-                    WHERE Hash IN ({GetPlaceholder(batch.Count)})
-                    """, batch.Cast<object>().ToArray());
+            var iterator = shard.IterateExecute("""
+                DELETE FROM ChunkContent
+                WHERE Hash = ?
+                """).GetEnumerator();
+            iterator.MoveNext();
+            foreach (var item in items) {
+                var stmt = iterator.Current;
+                raw.sqlite3_bind_blob(stmt, 1, item.AsReadOnlySpan());
+                iterator.MoveNext();
             }
+            iterator.Dispose();
         }
     }
     public void DeleteChunks(IReadOnlyList<Hash256> hashes, IProgress<ArchiveProgress> progress, CancellationToken token) {
@@ -81,22 +79,32 @@ internal partial class ChunkContentWriter: IDisposable {
         foreach (var hash in hashes) {
             distributedHashes[hash.ShardIndex].Add(hash);
         }
-        int deletedCount = 0;
         int totalCount = hashes.Count;
-        progress.Report(new(deletedCount, totalCount, "Delete", false));
+        Stopwatch throttleSw = Stopwatch.StartNew();
+        TimeSpan lastReport = TimeSpan.Zero;
+        int completedCount = 0;
         for (int i = 0; i < Config.Shards; i++) {
             var shard = this._shards[i];
             var items = distributedHashes[i];
-            var batches = items.Chunk(Config.MaxParameterCount).Select(c => c.ToList());
-            foreach (var batch in batches) {
-                token.ThrowIfCancellationRequested();
-                shard.Delete($"""
-                    DELETE FROM ChunkContent
-                    WHERE Hash IN ({GetPlaceholder(batch.Count)})
-                    """, batch.Cast<object>().ToArray());
-                deletedCount += batch.Count;
-                progress.Report(new(deletedCount, totalCount, "Delete", false));
+            var iterator = shard.IterateExecute("""
+                DELETE FROM ChunkContent
+                WHERE Hash = ?
+                """).GetEnumerator();
+            iterator.MoveNext();
+            foreach (var item in items) {
+                var stmt = iterator.Current;
+                raw.sqlite3_bind_blob(stmt, 1, item.AsReadOnlySpan());
+                iterator.MoveNext();
+
+                TimeSpan elapsed = throttleSw.Elapsed;
+                completedCount++;
+                bool shouldReport = completedCount == 1 || completedCount == totalCount || elapsed - lastReport > Config.UpdateInterval;
+                if (shouldReport) {
+                    lastReport = elapsed;
+                    progress.Report(new(completedCount+1, totalCount, "Delete", false));
+                }
             }
+            iterator.Dispose();
         }
     }
     public void LightMaintain() {
@@ -138,20 +146,14 @@ internal partial class ChunkContentReader: IDisposable {
 
     public Memory<byte> GetContent(Hash256 hash) {
         var reader = this._shards[hash.ShardIndex];
-        var rows = reader.Select<Memory<byte>>($"""
+        return reader.Select<Memory<byte>>($"""
             SELECT Content FROM ChunkContent
             WHERE Hash = ?
-            """, hash).ToList();
-        return rows[0].Item1;
+            """, hash).First().Item1;
     }
-    public void ProcessContent(Hash256 hash, Action<ReadOnlySpan<byte>> consumer) {
-        var reader = this._shards[hash.ShardIndex];
-        var rows = reader.Select($"""
-            SELECT Content FROM ChunkContent
-            WHERE Hash = ?
-            """, consumer, hash).ToList();
+    public SQLiteReadConnection GetConnection(Hash256 hash) {
+        return this._shards[hash.ShardIndex];
     }
-
     public void Dispose() {
         foreach(var shard in _shards) {
             shard.Dispose(false);

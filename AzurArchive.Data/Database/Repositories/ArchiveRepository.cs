@@ -9,10 +9,6 @@ internal partial class ArchiveRepository {
     public ArchiveRepository(DataManager manager) {
         this._saveFolder = manager.SaveDirectory;
     }
-    private record FileToArchive(long Id, string Name, string AbsPath);
-    private static int AtomicIncrease(Hash256 hash, int refCount) {
-        return refCount + 1;
-    }
     private static string GetPlaceholder(int count) {
         return string.Join(",", Enumerable.Repeat("?", count));
     }

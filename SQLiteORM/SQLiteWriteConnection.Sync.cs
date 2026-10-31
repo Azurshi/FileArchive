@@ -23,7 +23,7 @@ public partial class SQLiteWriteConnection {
         raw.sqlite3_step(stmt);
     }
     public int Delete(string sql, params object[] args) {
-        using sqlite3_stmt stmt = Preprate(sql);
+            using sqlite3_stmt stmt = Preprate(sql);
         for (int i = 0; i < args.Length; i++) {
             TypeMap.BindMap(stmt, i + 1, args[i]);
         }

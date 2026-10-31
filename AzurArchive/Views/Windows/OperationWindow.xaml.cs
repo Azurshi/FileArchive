@@ -23,14 +23,16 @@ public sealed partial class OperationWindow: Window {
     private readonly CancellationTokenSource _cts;
     public CancellationToken Token => _cts.Token;
     private bool _closed = false;
+    private readonly Stopwatch _sw;
     private OperationWindow(OperationType operation) {
+        this._sw = Stopwatch.StartNew();
         _current = this;
         this._cts = new();
         InitializeComponent();
         AppLifeCycle.OnCreateWindow();
         InitializeComponent();
         this.AppWindow.Closing += this.AppWindow_Closing;
-        this.AppWindow.Resize(new(512, 200));
+        this.AppWindow.Resize(new(512, 256));
         //this.Activated += this.OperationWindow_Activated;
     }
 
@@ -69,19 +71,19 @@ public sealed partial class OperationWindow: Window {
             OperationType.Export => "Exporting",
             _ => string.Empty
         };
-        if (operation == OperationType.Delete || operation == OperationType.Move || operation == OperationType.Copy) {
+        if (operation == OperationType.Move || operation == OperationType.Copy) {
             window.ProgressDisplay.Visibility = Visibility.Collapsed;
         }
         return window;
     }
     public void Report(ArchiveProgress p) {
-        //Debug.WriteLine("Reporting");
         if (p.Total >= 0 && p.Current >= 0) {
             this.ProgressDisplay.Maximum = p.Total;
             this.ProgressDisplay.Value = p.Current;
             this.ProgressText.Text = $"{p.Current} / {p.Total}";
         }
         this.MessageText.Text = p.Message;
+        this.ElapsedText.Text = $"Elapsed: {this._sw.Elapsed:hh\\:mm\\:ss}";
         if (p.Completed && !this._closed) {
             this.HandleClose().FireAndForgetAsync();
         }

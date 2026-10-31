@@ -8,10 +8,11 @@
 		<AppendRuntimeIdentifierToOutputPath>false</AppendRuntimeIdentifierToOutputPath>
 		<Nullable>enable</Nullable>
 		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+		<Optimize Condition="'$(Configuration)' == 'Release'">true</Optimize>
 
-		<Optimize>true</Optimize>
 		<Authors>Azurshi</Authors>
-		<Version>0.1.3</Version>
+		<Version Condition="'$(Configuration)' == 'Debug'">0.1.5-preview</Version>
+		<Version Condition="'$(Configuration)' == 'Release'">0.1.5</Version>
 		<Description> Native implementation of Fast CDC in C#</Description>
 	</PropertyGroup>
 </Project>

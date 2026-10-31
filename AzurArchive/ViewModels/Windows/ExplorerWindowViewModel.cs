@@ -12,8 +12,7 @@ using System.Threading.Tasks;
 namespace AzurArchive.ViewModels.Windows;
 
 public partial class ExplorerWindowViewModel: ObservableObject {
-    private readonly IFolderService _folderSerivce;
-    private readonly IFileService _fileService;
+    private readonly IEntryService _entryService;
     private readonly IAppSetting _setting;
     private long _folderId = -1;
     public long FolderId {
@@ -40,9 +39,8 @@ public partial class ExplorerWindowViewModel: ObservableObject {
     public string FolderPath { get; private set; }
     private readonly FolderStack _stack;
     private bool _busy;
-    public ExplorerWindowViewModel(IServiceProvider provider, IFolderService folderService, IFileService fileService, IAppSetting setting) {
-        this._folderSerivce = folderService;
-        this._fileService = fileService;
+    public ExplorerWindowViewModel(IServiceProvider provider, IEntryService entryService, IAppSetting setting) {
+        this._entryService = entryService;
         this.Items = new();
         this._setting = setting;
         this._stack = new();
@@ -68,7 +66,7 @@ public partial class ExplorerWindowViewModel: ObservableObject {
         }, () => !this._busy && _stack.CanForward());
         this.RefreshCommand = new(Refresh, () => !_busy);
         this.UpCommand = new(async () => {
-            FolderEntry? folder = await _folderSerivce.Get(_folderId);
+            Entry? folder = await _entryService.Get(_folderId);
             if (folder != null) {
                 await SetId(folder.ParentId);
             }
@@ -80,19 +78,10 @@ public partial class ExplorerWindowViewModel: ObservableObject {
         HookSignal();
     }
     private void HookSignal() {
-        async Task CheckAndRefresh(long id, bool isFile) {
-            if ((isFile && _folderSerivce.ContainFile(_folderId, id))
-                || (!isFile && _folderSerivce.ContainFolder(_folderId, id))) {
-                await Refresh();
-            }
+        async Task CheckAndRefresh(bool hasFolder) {
+            await Refresh();
         }
-        EventSystem.Connect<ItemAddedEventArgs>(async (_, e) => await CheckAndRefresh(e.Id, e.IsFile));
-        EventSystem.Connect<ItemModifiedEventArgs>(async (_, e) => await CheckAndRefresh(e.Id, e.IsFile));
-        EventSystem.Connect<ItemDeletedEventArgs>(async (_, e) => {
-            if (e.ParentId == _folderId) {
-                await Refresh();
-            }
-        });
+        EventSystem.Connect<ItemsChangedEventArgs>(async (_, e) => await CheckAndRefresh(e.HasFolder));
 
     }
     private void HeaderInfo_SaveRequest(object? sender, System.EventArgs e) {
@@ -102,13 +91,13 @@ public partial class ExplorerWindowViewModel: ObservableObject {
     public async Task Refresh() {
         this._busy = true;
         NotifyNavigation();
-        List<string> path = await _folderSerivce.GetPath(_folderId);
+        List<string> path = await _entryService.GetPath(_folderId);
         this.FolderPath = string.Join("\\", path);
         OnPropertyChanged(nameof(FolderPath));
-        FolderEntry? currentFolder = await _folderSerivce.Get(_folderId);
+        Entry? currentFolder = await _entryService.Get(_folderId);
         WindowNameChangeRequest?.Invoke(this, currentFolder?.Name ?? "Home");
-        List<FolderEntry> folders = await _folderSerivce.GetFolders(_folderId);
-        List<FileEntry> files = await _fileService.GetFiles(_folderId);
+        List<Entry> folders = await _entryService.GetFolders(_folderId);
+        List<Entry> files = await _entryService.GetFiles(_folderId);
         List<ExplorerItemViewModel> items = [];
         foreach (var folder in folders) {
             items.Add(new(folder, this.HeaderInfo));

@@ -5,6 +5,8 @@ using AzurArchive.Services;
 using AzurArchive.Views.Windows;
 using Microsoft.Extensions.DependencyInjection;
 using System;
+using System.Collections.Generic;
+using System.Text.Json;
 using System.Threading.Tasks;
 namespace AzurArchive.ViewModels.Items;
 
@@ -32,37 +34,26 @@ public partial class ExplorerItemViewModel: ViewOnlyListItem, IUpdateble {
     public string CreationTimeString => Formatter.Format(CreationTime);
     public DateTime ModifiedTime { get; init; }
     public string ModifiedTimeString => Formatter.Format(ModifiedTime);
+    public DateTime AccessTime { get; init; }
+    public string AccessTimeString => Formatter.Format(AccessTime);
     public long OriginalSize { get; init; }
+    public Dictionary<string, string> ExtendedData { get; init; }
+    public string ExtendedDataString => JsonSerializer.Serialize(ExtendedData);
     public string OriginalSizeString => Formatter.SizeFormatRound(OriginalSize);
 
     public AsyncCommandExtend OpenInNewWindowCommand { get; init; }
-    public SyncCommand CutCommand { get; init; }
-    public SyncCommand CopyCommand { get; init; }
-    public ExplorerItemViewModel(FileEntry file, ItemHeaderInfo headerInfo) {
+    public ExplorerItemViewModel(Entry entry, ItemHeaderInfo headerInfo) {
         this._ref = new(headerInfo);
-        this.Id = file.Id;
-        this.ParentId = file.FolderId;
-        this.IsFile = true;
-        this.Name = file.Name;
-        this.CreationTime = file.CreationTime;
-        this.ModifiedTime = file.ModifiedTime;
-        this.OriginalSize = file.OriginalSize;
-        this.OpenInNewWindowCommand = new(OpenInNewWindow, () => IsFolder);
-        this.CutCommand = new(Cut);
-        this.CopyCommand = new(Copy);
-    }
-    public ExplorerItemViewModel(FolderEntry folder, ItemHeaderInfo headerInfo) {
-        this._ref = new(headerInfo);
-        this.Id = folder.Id;
-        this.ParentId = folder.ParentId;
-        this.IsFile = false;
-        this.Name = folder.Name;
-        this.CreationTime = folder.CreationTime;
-        this.ModifiedTime = folder.ModifiedTime;
+        this.Id = entry.Id;
+        this.ParentId = entry.ParentId;
+        this.IsFile = entry.IsFile;
+        this.Name = entry.Name;
+        this.CreationTime = entry.CreationTime;
+        this.ModifiedTime = entry.ModifiedTime;
+        this.AccessTime = entry.AccessTime;
+        this.ExtendedData = entry.ExtendedData;
         this.OriginalSize = 0;
         this.OpenInNewWindowCommand = new(OpenInNewWindow, () => IsFolder);
-        this.CutCommand = new(Cut);
-        this.CopyCommand = new(Copy);
     }
 
     public object? GetRawValue(ItemField field) {
@@ -82,11 +73,5 @@ public partial class ExplorerItemViewModel: ViewOnlyListItem, IUpdateble {
             await window.SetId(Id);
         };
         window.Activate();
-    }
-    private void Cut() {
-        Clipboard.Cut(this);
-    }
-    private void Copy() {
-        Clipboard.Copy(this);
     }
 }

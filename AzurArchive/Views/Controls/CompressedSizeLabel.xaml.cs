@@ -37,10 +37,10 @@ public sealed partial class CompressedSizeLabel: UserControl {
             long size = 0;
             try {
                 if (vm.IsFile) {
-                    size = await archiver.GetEstimatedFileArchiveSize(vm.Id, CancellationToken.None);
+                    size = await archiver.GetEstimatedArchiveSize(vm.Id, CancellationToken.None);
                 }
                 else {
-                    size = await archiver.GetEstimatedFolderArchiveSize(vm.Id, CancellationToken.None);
+                    size = await archiver.GetEstimatedArchiveSize(vm.Id, CancellationToken.None);
                 }
             }
             catch {

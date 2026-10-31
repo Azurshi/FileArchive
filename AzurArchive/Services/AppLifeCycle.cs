@@ -82,7 +82,12 @@ public static class AppLifeCycle {
         sw.Stop();
         _closeHandlers.Clear();
         Debug.WriteLine($"!!!---App closed---!!! {sw.ElapsedMilliseconds} ms");
-        Application.Current.Exit();
+        try {
+            Application.Current.Exit();
+        }
+        catch (System.ExecutionEngineException e) {
+            Debug.WriteLine(e);
+        }
     }
 
     public static void RegisterAppClose(Action action) {

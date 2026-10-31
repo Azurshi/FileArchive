@@ -46,7 +46,7 @@
                     CommandParameter="{x:Bind ViewModel.FolderId, Mode=OneWay}"/>
             <Button Grid.Column="5"
                     Content="Import"
-                    Command="{x:Bind service:Commands.ImportCommand}"
+                    Command="{x:Bind service:Commands.ImportFolderCommand}"
                     CommandParameter="{x:Bind ViewModel.FolderId, Mode=OneWay}" />
             <Button Grid.Column="6"
                     Content="Info" 
@@ -60,6 +60,7 @@
         <control:FileExplorer Grid.Row="1" 
                               HeaderInfo="{x:Bind ViewModel.HeaderInfo, Mode=OneWay}"
                               ItemsSource="{x:Bind ViewModel.Items, Mode=OneWay}"
+                              FolderId="{x:Bind ViewModel.FolderId, Mode=OneWay}"
                               ItemDoubleClicked="FileExplorer_ItemDoubleClicked"
                               OpenItemCommand="{x:Bind ViewModel.OpenItemCommand, Mode=OneWay}"
                               SelectItemsCommand="{x:Bind ViewModel.SelectItemsCommand, Mode=OneWay}"

@@ -18,14 +18,14 @@ public static class ServiceCollectionExtensions {
 
         // Database
         services.AddSingleton<ChunkRepository>();
-        services.AddSingleton<FileRepository>();
-        services.AddSingleton<FolderRepository>();
+        services.AddSingleton<EntryRepository>();
         services.AddSingleton<ArchiveRepository>();
 
         // Data
         services.AddSingleton<IArchiver, Archiver>();
-        services.AddSingleton<IFileService, FileService>();
-        services.AddSingleton<IFolderService, FolderService>();
+        services.AddSingleton<IEntryService, EntryService>();
+        //services.AddSingleton<IFileService, FileService>();
+        //services.AddSingleton<IFolderService, FolderService>();
         services.AddSingleton<IAppSetting, AppSetting>();
         var result = TypeMapExtend.Register(
             typeof(Hash256),
@@ -39,6 +39,12 @@ public static class ServiceCollectionExtensions {
             MemoryBinder,
             MemoryReader
             );
+        result &= TypeMapExtend.Register(
+            typeof(ReadOnlyMemory<byte>),
+            SQLiteKeyword.Blob,
+            ReadOnlyMemoryBinder,
+            ReadOnlyMemoryReader
+            );
         if (result == false) {
             Debug.WriteLine("Failed to register database field");
         }
@@ -50,18 +56,25 @@ public static class ServiceCollectionExtensions {
     }
     private static object Hash256Reader(sqlite3_stmt stmt, int index) {
         ReadOnlySpan<byte> span = raw.sqlite3_column_blob(stmt, index);
-        Hash256 hash = new();
-        span.CopyTo(hash.AsSpan());
+        Hash256 hash = new(span);
         return hash;
     }
     private static readonly Memory<byte> MemoryBuffer = new byte[Config.MaxChunkSize];
     private static int MemoryBinder(sqlite3_stmt stmt, int index, object value) {
-        Memory<byte> memory = (Memory<byte>)value;
+        var memory = (Memory<byte>)value;
         return raw.sqlite3_bind_blob(stmt, index, memory.Span);
     }
     private static object MemoryReader(sqlite3_stmt stmt, int index) {
-        ReadOnlySpan<byte> span = raw.sqlite3_column_blob(stmt, index);
+        var span = raw.sqlite3_column_blob(stmt, index);
         span.CopyTo(MemoryBuffer.Span);
         return MemoryBuffer[..span.Length];
+    }
+    private static int ReadOnlyMemoryBinder(sqlite3_stmt stmt, int index, object value) {
+        var memory = (ReadOnlyMemory<byte>)value;
+        return raw.sqlite3_bind_blob(stmt, index, memory.Span);
+    }
+    private static object ReadOnlyMemoryReader(sqlite3_stmt stmt, int index) {
+        var span = raw.sqlite3_column_blob(stmt, index);
+        return new ReadOnlyMemory<byte>(span.ToArray());
     }
 }

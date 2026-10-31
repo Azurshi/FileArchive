@@ -1,4 +1,5 @@
-﻿using AzurArchive.Data.Database.Repositories;
+﻿using AzurArchive.Data.Database.Entities;
+using AzurArchive.Data.Database.Repositories;
 using AzurArchive.Data.Services;
 using System;
 using System.Collections.Generic;
@@ -6,6 +7,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
+using Windows.UI.ViewManagement;
 
 namespace AzurArchive.Data.ServiceImplemments;
 
@@ -19,7 +21,6 @@ internal record FolderDto(
 
 internal class Archiver: IArchiver {
     private readonly ChunkRepository _chunkRepo;
-    //private readonly UpdateRepository _updateRep~o;
     private readonly ArchiveRepository _archiveRepo;
 
     public event EventHandler? BusyChanged;
@@ -38,133 +39,40 @@ internal class Archiver: IArchiver {
         this._chunkRepo = chunkRepository;
         this._archiveRepo = archiveRepository;
     }
-    private static FolderDto? WalkDirectory(string inputFolderPath) {
-        DirectoryInfo directoryInfo = new (inputFolderPath);
-        if (directoryInfo.Parent == null) {
+    public async Task<Entry?> Import(long folderId, List<string> inputPaths, int nWorkers, IProgress<ArchiveProgress> progress, CancellationToken token) {
+        var sw = Stopwatch.StartNew();
+        var result = await Task.Run(() => this._archiveRepo.ImportEntry(folderId, inputPaths, nWorkers, progress, token));
+        Debug.WriteLine($"Import elapsed: {sw.Elapsed} s");
+        if (result != null) {
+            return Entry.FromEntity(result);
+        } else {
             return null;
         }
-        Queue<FolderDto> q = [];
-        FolderDto rootFolder = new(directoryInfo.FullName, directoryInfo.Name, null, [], []);
-        q.Enqueue(rootFolder);
-        while (q.Count > 0) {
-            var folder = q.Dequeue();
-            foreach (string subFolderPath in Directory.GetDirectories(folder.AbsPath)) {
-                string subFolderName = new DirectoryInfo(subFolderPath).Name;
-                FolderDto subFolder = new(subFolderPath, subFolderName, folder, [], []);
-                folder.Children.Add(subFolder);
-                q.Enqueue(subFolder);
-            }
-            foreach (string filePath in Directory.GetFiles(folder.AbsPath)) {
-                string fileName = Path.GetFileName(filePath);
-                folder.Files.Add(fileName);
-            }
-        }
-        return rootFolder;
-    }
-    public Task<long> GetCompressedByteCount(CancellationToken _) {
-        return _chunkRepo.GetCompressedByteCount();
     }
 
-    public Task<long> GetEstimatedFileArchiveSize(long fileId, CancellationToken token) {
-        return _chunkRepo.GetEstimatedFileArchiveSize(fileId, token);
+    public async Task<bool> Export(List<long> entryIds, string outputFolderPath, int nWorkers, IProgress<ArchiveProgress> progress, CancellationToken token) {
+        var sw = Stopwatch.StartNew();
+        var result = await Task.Run(() => this._archiveRepo.ExportEntry(entryIds, outputFolderPath, nWorkers, progress, token));
+        Debug.WriteLine($"Restore elapsed: {sw.Elapsed} s");
+        return result;
     }
 
-    public Task<long> GetEstimatedFolderArchiveSize(long folderId, CancellationToken token) {
-        return _chunkRepo.GetEstimatedFolderArchiveSize(folderId, token);
+    public async Task<bool> Delete(List<long> entryIds, IProgress<ArchiveProgress> progress, CancellationToken token) {
+        var sw = Stopwatch.StartNew();
+        var result = await Task.Run(() => this._archiveRepo.DeleteEntry(entryIds, progress, token));
+        Debug.WriteLine($"Delete elapsed: {sw.Elapsed} s");
+        return result;
     }
 
-    public Task<long> GetOriginalByteCount(CancellationToken _) {
-        return _chunkRepo.GetOriginalByteCount();
+    public Task<long> GetEstimatedArchiveSize(long entryId, CancellationToken token) {
+        return Task.FromResult(0L);
     }
 
-    public async Task<FolderEntry?> ImportFolder(long folderId, string inputFolderPath, int nWorkers, IProgress<ArchiveProgress> progress, CancellationToken token) {
-        await LockManager.LargeModifyLock.WaitAsync(token);
-        this.Busy = true;
-        try {
-            Stopwatch sw = new();
-            sw.Start();
-            FolderDto? root = WalkDirectory(inputFolderPath);
-            if (root != null) {
-                var entity = await Task.Run(() => _archiveRepo.ImportFolder(folderId, root, nWorkers, progress, token));
-                sw.Stop();
-                Debug.WriteLine($"Elapsed time: {sw.Elapsed.TotalSeconds} s");
-                if (entity != null) {
-                    return new(entity.ParentId, entity.Id!.Value, entity.Name, entity.CreationTime, entity.ModifiedTime);
-                }
-                else {
-                    return null;
-                }
-            }
-            else {
-                return null;
-            }
-        }
-        finally {
-            this.Busy = false;
-            LockManager.LargeModifyLock.Release();
-        }
-    }
-    public async Task<bool> RestoreFolder(long folderId, string outputFolderPath, int nWorkers, IProgress<ArchiveProgress> progress, CancellationToken token) {
-        await LockManager.LargeModifyLock.WaitAsync(token);
-        this.Busy = true;
-        try {
-            Stopwatch sw = new();
-            sw.Start();
-            var result = await Task.Run(() => _archiveRepo.RestoreFolder(folderId, outputFolderPath, nWorkers, progress, token));
-            sw.Stop();
-            Debug.WriteLine($"Elapsed time: {sw.Elapsed.TotalSeconds} s");
-            return result;
-        }
-        finally {
-            this.Busy = false;
-            LockManager.LargeModifyLock.Release();
-        }
+    public Task<long> GetOriginalByteCount(CancellationToken token) {
+        return Task.FromResult(0L);
     }
 
-    public async Task<bool> RestoreFile(long fileId, string outputFolderPath, IProgress<ArchiveProgress> progress, CancellationToken token) {
-        return await Task.Run(() => _archiveRepo.RestoreFile(fileId, outputFolderPath, progress, token));
-    }
-    public async Task<long?> DeleteFolder(long folderId, IProgress<ArchiveProgress> progress, CancellationToken token) {
-        await LockManager.LargeModifyLock.WaitAsync(token);
-        this.Busy = true;
-        try {
-            return await Task.Run(() => this._archiveRepo.DeleteFolder(folderId, progress, token));
-        }
-        finally {
-            this.Busy = false;
-            LockManager.LargeModifyLock.Release();
-        }
-    }
-
-    public async Task<long?> DeleteFile(long fileId, IProgress<ArchiveProgress> progress, CancellationToken token) {
-        await LockManager.LargeModifyLock.WaitAsync(token);
-        this.Busy = true;
-        try {
-            return await Task.Run(() => this._archiveRepo.DeleteFile(fileId, progress, token));
-        }
-        finally {
-            this.Busy = false;
-            LockManager.LargeModifyLock.Release();
-        }
-    }
-
-    public async Task<FileEntry?> ImportFile(long folderId, string inputFilePath, IProgress<ArchiveProgress> progress, CancellationToken token) {
-        await LockManager.LargeModifyLock.WaitAsync(token);
-        this.Busy = true;
-        try {
-            Stopwatch sw = new();
-            sw.Start();
-            var entity = await Task.Run(() => _archiveRepo.ImportFile(folderId, inputFilePath, progress, token));
-            if (entity != null) {
-                return new(entity.FolderId, entity.Id!.Value, entity.Name, entity.CreationTime, entity.ModifiedTime, entity.OriginalSize);
-            }
-            else {
-                return null;
-            }
-        }
-        finally {
-            this.Busy = false;
-            LockManager.LargeModifyLock.Release();
-        }
+    public Task<long> GetCompressedByteCount(CancellationToken token) {
+        return Task.FromResult(0L);
     }
 }
