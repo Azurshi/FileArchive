@@ -1,45 +1,41 @@
 ﻿using AzurArchive.Core;
 using AzurArchive.Data.Services;
+using AzurArchive.Domain;
 using AzurArchive.ViewModels.Items;
 using Microsoft.Extensions.DependencyInjection;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
 namespace AzurArchive.Services;
 
 public static class Clipboard {
+    private static IEntryService EntryService {
+        get {
+            field ??= AppLifeCycle.Service.GetRequiredService<IEntryService>();
+            return field;
+        }
+    } = null;
     private enum State {
         None,
         Copy,
         Cut
     }
-    private record FilePackage(
-        long Id);
-    private record FolderPackage(
-        long Id);
-    private static object? _package = null;
+    private record EntryPackage(
+        long Id, bool IsFile);
+    private static List<EntryPackage> _packages = [];
     private static State _state = State.None;
-    public static void Copy(ExplorerItemViewModel item) {
+    public static void Copy(List<ExplorerItemViewModel> items) {
         _state = State.Copy;
-        if (item.IsFile) {
-            _package = new FilePackage(item.Id);
-        }
-        else {
-            _package = new FolderPackage(item.Id);
-        }
+        _packages = items.Select(i => new EntryPackage(i.Id, i.IsFile)).ToList();
         PasteCommand.NotifyCanExecute();
     }
-    public static void Cut(ExplorerItemViewModel item) {
+    public static void Cut(List<ExplorerItemViewModel> items) {
         _state = State.Cut;
-        if (item.IsFile) {
-            _package = new FilePackage(item.Id);
-        }
-        else {
-            _package = new FolderPackage(item.Id);
-        }
+        _packages = items.Select(i => new EntryPackage(i.Id, i.IsFile)).ToList();
         PasteCommand.NotifyCanExecute();
     }
     private static void Print(MovingProgress progress) {
@@ -48,42 +44,34 @@ public static class Clipboard {
     private static bool _busy = false;
     private static readonly AsyncCommandExtend<long> _pasteCommand = new(Paste, CanPaste);
     private static bool CanPaste(long folderId) {
-        if (_package == null) {
+        if (_packages.Count == 0) {
             return false;
         }
-        else if (_package is FolderPackage folderPackage) {
-            var folderService = AppLifeCycle.Service.GetRequiredService<IFolderService>();
-            //return !folderService.ContainFolder(folderId, folderPackage.Id);
-            return false;
-        }
-        else if (_package is FilePackage filePackage) {
-            var folderService = AppLifeCycle.Service.GetRequiredService<IFolderService>();
-            //return !folderService.ContainFile(folderId, filePackage.Id);
-            return false;
+        else {
+            foreach (var package in _packages) {
+                if (EntryService.Contain(folderId, package.Id)) {
+                    return false;
+                }
+            }
         }
         return true;
     }
     public static AsyncCommandExtend<long> PasteCommand => _pasteCommand;
     public static async Task Paste(long folderId) {
-        if (_busy || _package != null && _state != State.None) {
+        if (!_busy && _packages.Count != 0 && _state != State.None) {
             _busy = true;
-            if (_package is FilePackage filePackage) {
-                var fileRepo = AppLifeCycle.Service.GetRequiredService<IFileService>();
-                if (_state == State.Copy) {
-                    await fileRepo.Copy(filePackage.Id, folderId, new Progress<MovingProgress>(Print));
-                }
-                else if (_state == State.Cut) {
-                    await fileRepo.Move(filePackage.Id, folderId, new Progress<MovingProgress>(Print));
-                }
+            var ids = _packages.Select(i => i.Id).ToList();
+            bool success = false;
+            if (_state == State.Copy) {
+                success = await EntryService.Copy(ids, folderId, new Progress<MovingProgress>(Print));
             }
-            else if (_package is FolderPackage folderPackage) {
-                var folderRepo = AppLifeCycle.Service.GetRequiredService<IFolderService>();
-                if (_state == State.Copy) {
-                    await folderRepo.Copy(folderPackage.Id, folderId, new Progress<MovingProgress>(Print));
-                }
-                else if (_state == State.Cut) {
-                    await folderRepo.Move(folderPackage.Id, folderId, new Progress<MovingProgress>(Print));
-                }
+            else if (_state == State.Cut) {
+                success = await EntryService.Move(ids, folderId, new Progress<MovingProgress>(Print));
+            }
+            if (success) {
+                bool hasFolder = _packages.Any(i => !i.IsFile);
+                ItemsChangedEventArgs args = new(hasFolder);
+                EventSystem.Publish(null, args);
             }
             _busy = false;
         }

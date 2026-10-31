@@ -63,7 +63,7 @@ public partial class SQLiteReadConnection : SQLiteConnection {
             }
         }
     }
-    public IEnumerable<sqlite3_stmt> Iterate(string sql, params object[] args) {
+    public IEnumerable<sqlite3_stmt> IterateSelect(string sql, params object[] args) {
         using (sqlite3_stmt stmt = Preprate(sql)) {
             for (int i = 0; i < args.Length; i++) {
                 TypeMap.BindMap(stmt, i + 1, args[i]);

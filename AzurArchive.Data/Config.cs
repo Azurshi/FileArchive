@@ -1,4 +1,6 @@
-﻿namespace AzurArchive.Data;
+﻿using System;
+
+namespace AzurArchive.Data;
 
 internal static class Config {
     public const int KB = 1024;
@@ -17,6 +19,9 @@ internal static class Config {
     public const int Shards = 16;
     public const int MaxMaintainShard = 16;
 
+    public static readonly TimeSpan UpdateInterval = TimeSpan.FromMilliseconds(200);
+
     public const string DatabaseName = "appData.db";
     public const string ShardFolder = "Shards";
+    public const string TrashCanName = "*trash";
 }

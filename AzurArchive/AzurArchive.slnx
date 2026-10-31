@@ -5,6 +5,9 @@
     <Platform Name="x86" />
   </Configurations>
   <Project Path="../AzurArchive.Data/AzurArchive.Data.csproj" />
+  <Project Path="../FastCDC/FastCDC.csproj" />
+  <Project Path="../SQLiteORM/SQLiteORM.csproj" />
+  <Project Path="../WindowIcon/WindowIcon.csproj" />
   <Project Path="AzurArchive.csproj">
     <Platform Solution="*|ARM64" Project="ARM64" />
     <Platform Solution="*|x64" Project="x64" />

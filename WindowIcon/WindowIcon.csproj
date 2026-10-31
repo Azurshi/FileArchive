@@ -9,9 +9,11 @@
 	  <Nullable>enable</Nullable>
 	  <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
 
-	  <Optimize>true</Optimize>
+	  <Optimize Condition="'$(Configuration)' == 'Release'">true</Optimize>
+
 	  <Authors>Azurshi</Authors>
-	  <Version>0.0.5</Version>
+	  <Version Condition="'$(Configuration)' == 'Debug'">0.0.5-preview</Version>
+	  <Version Condition="'$(Configuration)' == 'Release'">0.0.5</Version>
 	  <Description> v0.0: Initial version</Description>
   </PropertyGroup>
   <ItemGroup>

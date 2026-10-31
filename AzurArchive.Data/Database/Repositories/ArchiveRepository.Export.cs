@@ -16,30 +16,33 @@ namespace AzurArchive.Data.Database.Repositories;
 
 internal partial class ArchiveRepository {
     // Return list of (File entry, Output folder path)
-    private static List<ValueTuple<EntryEntity, string>> RestoreFolderAndScanFile(SQLiteReadConnection connection, long rootId, string rootFolderPath) {
+    private static ValueTuple<List<ValueTuple<EntryEntity, string>>, List<ValueTuple<string, DateTime, DateTime, DateTime>>> ExportFolderAndScanFile(SQLiteReadConnection connection, long rootId, string rootFolderPath) {
         List<ValueTuple<EntryEntity, string>> result = [];
         // Id, Parent folder path
-        Queue<ValueTuple<long, string>> q = [];
-        q.Enqueue((rootId, rootFolderPath));
+        Queue<ValueTuple<EntryEntity, string>> q = [];
+        List<ValueTuple<string, DateTime, DateTime, DateTime>> timeStack = [];
+        var root = EntryRepository.GetEntry(connection, rootId)!;
+        q.Enqueue((root, Path.Join(rootFolderPath, root.Name)));
         while(q.Count > 0) {
-            var (entryId, folderPath) = q.Dequeue();
-            var children = EntryRepository.GetChildren(connection, entryId);
+            var (entry, folderPath) = q.Dequeue();
+            if (!Directory.Exists(folderPath)) {
+                Directory.CreateDirectory(folderPath);
+                timeStack.Add((folderPath, entry.CreationTime, entry.ModifiedTime, entry.AccessTime));
+            }
+            var children = EntryRepository.GetChildren(connection, entry.Id!.Value);
             foreach(var child in children) {
                 if (child.IsFolder()) {
                     var childFolderPath = Path.Join(folderPath, child.Name);
-                    q.Enqueue((child.Id!.Value, childFolderPath));
-                    if (!Directory.Exists(childFolderPath)) {
-                        Directory.CreateDirectory(childFolderPath);
-                    }
+                    q.Enqueue((child, childFolderPath));
                 }
                 else {
                     result.Add((child, folderPath));
                 }
             }
         }
-        return result;
+        return (result, timeStack);
     }
-    private static void RestoreFiles(string saveDirectory, List<ValueTuple<EntryEntity, string>> fileDtos, int nWorkers, IProgress<ArchiveProgress> progress, CancellationToken token) {
+    private static void ExportFiles(string saveDirectory, List<ValueTuple<EntryEntity, string>> fileDtos, int nWorkers, IProgress<ArchiveProgress> progress, CancellationToken token) {
         int fileCount = fileDtos.Count;
         string dbPath = Path.Join(saveDirectory, Config.DatabaseName);
         // Per-thread resources
@@ -55,18 +58,21 @@ internal partial class ArchiveRepository {
             fileHashesBuffers[i] = new byte[Config.FileContentBufferInitialSize];
             decompressors[i] = new();
         }
-        void Job(int tIndex, int fileIndex, EntryEntity fileEntry, string outputFolder, CancellationToken token) {
-            progress.Report(new(fileIndex + 1, fileCount, $"Extracting: {Path.Join(outputFolder, fileEntry.Name)}", false));
+        object reportLock = new();
+        Stopwatch throttleSw = Stopwatch.StartNew();
+        TimeSpan lastReport = TimeSpan.Zero;
+        int completedCount = 0;
+        void Job(int tIndex, int fileIndex, EntryEntity file, string outputFolder, CancellationToken token) {
             token.ThrowIfCancellationRequested();
             var reader = readers[tIndex];
             var chunkReader = chunkReaders[tIndex];
             var compressBuffer = compressBuffers[tIndex].Span;
             var decompressor = decompressors[tIndex];
             var fileHashesBuffer = fileHashesBuffers[tIndex].Span;
-            foreach(var stmt in reader.Iterate("""
+            foreach(var stmt in reader.IterateSelect("""
                 SELECT Content FROM EntryContentEntity
                 WHERE Id = ?
-                """, fileEntry.Id!.Value)) {
+                """, file.Id!.Value)) {
                 var span = raw.sqlite3_column_blob(stmt, 0);
                 if (span.Length > fileHashesBuffer.Length) {
                     var newLength = fileHashesBuffer.Length * 2;
@@ -74,21 +80,21 @@ internal partial class ArchiveRepository {
                     fileHashesBuffers[tIndex] = newBuffer;
                     fileHashesBuffer = newBuffer;
                 }
-                span.CopyTo(fileHashesBuffer);
-                fileHashesBuffer = fileHashesBuffer[..span.Length];
+                    span.CopyTo(fileHashesBuffer);
+                    fileHashesBuffer = fileHashesBuffer[..span.Length];
                 break;
             }
-            using (var stream = File.OpenWrite(Path.Join(outputFolder, fileEntry.Name))) {
+            var path = Path.Join(outputFolder, file.Name);
+            using (var stream = new FileStream(path, FileMode.OpenOrCreate, FileAccess.Write, FileShare.None)) {
                 for (int offset = 0; offset < fileHashesBuffer.Length; offset += 32) {
                     token.ThrowIfCancellationRequested();
-                    Hash256 hash = new();
-                    fileHashesBuffer.Slice(offset, 32).CopyTo(hash.AsSpan());
+                    Hash256 hash = new(fileHashesBuffer.Slice(offset, 32));
                     var compressionLevel = reader.Select<int>("""
                         SELECT CompressionLevel FROM ChunkEntity
                         WHERE Hash = ?
                         """, hash).First().Item1;
                     var chunkConnection = chunkReader.GetConnection(hash);
-                    foreach (var stmt in chunkConnection.Iterate("""
+                    foreach (var stmt in chunkConnection.IterateSelect("""
                         SELECT Content FROM ChunkContent
                         WHERE Hash = ?
                         """, hash)) {
@@ -103,6 +109,18 @@ internal partial class ArchiveRepository {
                         }
                         break;
                     }
+                }
+                File.SetCreationTimeUtc(stream.SafeFileHandle, file.CreationTime);
+                File.SetLastWriteTimeUtc(stream.SafeFileHandle, file.ModifiedTime);
+                File.SetLastAccessTimeUtc(stream.SafeFileHandle, file.AccessTime);
+            }
+            lock(reportLock) {
+                TimeSpan elapsed = throttleSw.Elapsed;
+                completedCount++;
+                bool shouldReport = completedCount == 1 || completedCount == fileCount || elapsed - lastReport > Config.UpdateInterval;
+                if (shouldReport) {
+                    lastReport = elapsed;
+                    progress.Report(new(completedCount + 1, fileCount, $"Export: {file.Name}", false));
                 }
             }
         }
@@ -144,12 +162,27 @@ internal partial class ArchiveRepository {
             }
         }
     }
-    public bool RestoreEntry(long entryId, string outputFolderPath, int nWorkers, IProgress<ArchiveProgress> progress, CancellationToken token) {
+    public bool ExportEntry(List<long> entryIds, string outputFolderPath, int nWorkers, IProgress<ArchiveProgress> progress, CancellationToken token) {
         string dbPath = Path.Join(this._saveFolder, Config.DatabaseName);
         SQLiteReadConnection reader = new(dbPath);
         try {
-            var fileDtos = RestoreFolderAndScanFile(reader, entryId, outputFolderPath);
-            RestoreFiles(this._saveFolder, fileDtos, nWorkers, progress, token);
+            // TODO:Check for inclusive paths
+            List<ValueTuple<EntryEntity, string>> totalFileDtos = [];
+            List<ValueTuple<string, DateTime, DateTime, DateTime>> totalTimeStack = [];
+            foreach (var entryId in entryIds) {
+                var (fileDtos, timeStack) = ExportFolderAndScanFile(reader, entryId, outputFolderPath);
+                totalFileDtos.AddRange(fileDtos);
+                totalTimeStack.AddRange(timeStack);
+            }
+            ExportFiles(this._saveFolder, totalFileDtos, nWorkers, progress, token);
+            for(int i=totalTimeStack.Count-1;i>=0; i--) {
+                var (path, creation, modified, access) = totalTimeStack[i];
+                var dir = new DirectoryInfo(path) {
+                    CreationTimeUtc = creation,
+                    LastWriteTimeUtc = modified,
+                    LastAccessTimeUtc = access
+                };
+            }
             progress.Report(new(-1, -1, "Completed", true));
             return true;
         }

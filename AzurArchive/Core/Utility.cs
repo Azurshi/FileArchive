@@ -3,7 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
-using Windows.Storage.Pickers;
+using Microsoft.Windows.Storage.Pickers;
 using WinRT.Interop;
 
 namespace AzurArchive.Core;
@@ -70,12 +70,11 @@ public static class ExplorerPicker {
         if (Window == null) {
             throw new NullReferenceException("Window is not set");
         }
-        FileOpenPicker picker = new();
+        FileOpenPicker picker = new(Window.AppWindow.Id);
         picker.ViewMode = PickerViewMode.List;
         foreach (var fileType in fileTypes) {
             picker.FileTypeFilter.Add(fileType);
         }
-        InitializeWithWindow.Initialize(picker, WindowNative.GetWindowHandle(Window));
         var file = await picker.PickSingleFileAsync();
         if (file != null) {
             return file.Path;
@@ -84,13 +83,27 @@ public static class ExplorerPicker {
             return null;
         }
     }
+    public static async Task<List<string>> PickFiles(List<string> fileTypes) {
+        if (Window == null) {
+            throw new NullReferenceException("Window is not set");
+        }
+        FileOpenPicker picker = new(Window.AppWindow.Id);
+        picker.ViewMode = PickerViewMode.List;
+        foreach (var fileType in fileTypes) {
+            picker.FileTypeFilter.Add(fileType);
+        }
+        var files = await picker.PickMultipleFilesAsync();
+        List<string> result = [];
+        foreach(var file in files) {
+            result.Add(file.Path);
+        }
+        return result;
+    }
     public static async Task<string?> PickFolder() {
         if (Window == null) {
             throw new NullReferenceException("Window is not set");
         }
-        FolderPicker picker = new();
-        picker.FileTypeFilter.Add("*");
-        InitializeWithWindow.Initialize(picker, WindowNative.GetWindowHandle(Window));
+        FolderPicker picker = new(Window.AppWindow.Id);
         var folder = await picker.PickSingleFolderAsync();
         if (folder != null) {
             return folder.Path;
@@ -98,5 +111,17 @@ public static class ExplorerPicker {
         else {
             return null;
         }
+    }
+    public static async Task<List<string>> PickFolders() {
+        if (Window == null) {
+            throw new NullReferenceException("Window is not set");
+        }
+        FolderPicker picker = new(Window.AppWindow.Id);
+        var folders = await picker.PickMultipleFoldersAsync();
+        List<string> result = [];
+        foreach (var file in folders) {
+            result.Add(file.Path);
+        }
+        return result;
     }
 }

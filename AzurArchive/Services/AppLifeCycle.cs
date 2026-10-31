@@ -85,7 +85,7 @@ public static class AppLifeCycle {
         try {
             Application.Current.Exit();
         }
-        catch (Exception e) {
+        catch (System.ExecutionEngineException e) {
             Debug.WriteLine(e);
         }
     }

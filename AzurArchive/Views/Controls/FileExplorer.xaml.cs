@@ -1,4 +1,5 @@
 using AzurArchive.Domain;
+using AzurArchive.Services;
 using AzurArchive.ViewModels;
 using AzurArchive.ViewModels.Items;
 using AzurArchive.Views.Controls.ListComponents;
@@ -35,6 +36,15 @@ public sealed partial class FileExplorer: UserControl {
         var newValue = (ObservableCollectionExtendAdvanced<ExplorerItemViewModel>)e.NewValue;
         This.Container.ItemsSource = newValue.Items;
     }
+    public long FolderId {
+        get => (long)GetValue(FolderIdProperty);
+        set => SetValue(FolderIdProperty, value);
+    }
+    public static readonly DependencyProperty FolderIdProperty
+        = Utility.Create<long>(ThisType, -1, (d, e) => {
+            var This = (FileExplorer)d;
+
+        });
     public ICommand? SelectItemsCommand {
         get => (ICommand?)GetValue(SelectItemsCommandProperty);
         set => SetValue(SelectItemsCommandProperty, value);
@@ -119,7 +129,7 @@ public sealed partial class FileExplorer: UserControl {
             return items;
         }
         else {
-            items = items.OrderBy(c => c.GetRawValue(_lastSort.Field)).ToList();
+            items = items.OrderBy(c => (c.IsFile, c.GetRawValue(_lastSort.Field))).ToList();
             if (_lastSort.Order == OrderState.Descending) {
                 return items.Reverse().ToList();
             }
@@ -167,8 +177,8 @@ public sealed partial class FileExplorer: UserControl {
             e.Handled = true;
         }
     }
-
-    private void Menu_Open_Clicked(object sender, RoutedEventArgs e) {
+    #region ItemMenu
+    private void ItemMenu_Open_Clicked(object sender, RoutedEventArgs e) {
         if (_targetGrid != null) {
             if (_targetGrid.DataContext is ExplorerItemViewModel vm) {
                 OpenItemCommand?.Execute(vm);
@@ -180,11 +190,11 @@ public sealed partial class FileExplorer: UserControl {
         _targetGrid = (Grid)((MenuFlyout)sender).Target;
     }
 
-    private void MenuFlyout_Closed(object sender, object e) {
+    private void ItemMenuFlyout_Closed(object sender, object e) {
         _targetGrid = null;
     }
 
-    private void MenuFlyoutItem_Click(object sender, RoutedEventArgs e) {
+    private void ItemMenuFlyoutItem_Rename(object sender, RoutedEventArgs e) {
         if (_targetGrid != null) {
             foreach(var children in _targetGrid.Children) {
                 if (children is ItemListColumn column) {
@@ -197,4 +207,16 @@ public sealed partial class FileExplorer: UserControl {
             }
         }
     }
+
+    private void ItemMenuFlyoutItem_Cut(object sender, RoutedEventArgs e) {
+        var selectedItems = this.Container.SelectedItems.Cast<ExplorerItemViewModel>().ToList();
+        Clipboard.Cut(selectedItems);
+    }
+    private void ItemMenuFlyoutItem_Copy(object sender, RoutedEventArgs e) {
+        var selectedItems = this.Container.SelectedItems.Cast<ExplorerItemViewModel>().ToList();
+        Clipboard.Copy(selectedItems);
+    }
+    #endregion
+    #region ListMenu
+    #endregion
 }

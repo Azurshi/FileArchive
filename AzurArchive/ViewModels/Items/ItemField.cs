@@ -14,9 +14,11 @@ public enum ItemField {
 
     CreationTime,
     ModifiedTime,
+    AccessTime,
     OriginalSize,
     CompressedSize,
 
+    ExtendedData,
     Menu
 }
 
@@ -27,8 +29,10 @@ public partial class ItemColumnInfo: ObservableObject {
             ItemField.Name => "Name",
             ItemField.CreationTime => "Creation time",
             ItemField.ModifiedTime => "Modified time",
+            ItemField.AccessTime => "Access time",
             ItemField.OriginalSize => "Size",
             ItemField.CompressedSize => "Compressed size",
+            ItemField.ExtendedData => "Extended data",
             ItemField.Menu => "Menu",
             _ => string.Empty
         };
@@ -135,8 +139,10 @@ public partial class ItemHeaderInfo: ObservableObject, IDisposable {
         (ItemField.Name, 256, true),
         (ItemField.CreationTime, 96, false),
         (ItemField.ModifiedTime, 96, false),
+        (ItemField.AccessTime, 96, false),
         (ItemField.OriginalSize, 64, false),
         (ItemField.CompressedSize, 64, false),
+        (ItemField.ExtendedData, 32, false),
         (ItemField.Menu, 128, true)
         ];
     public int ColumnCount => this._columns.Count;
@@ -156,8 +162,10 @@ public partial class ItemHeaderInfo: ObservableObject, IDisposable {
     public ItemColumnInfo NameColumn => this[ItemField.Name];
     public ItemColumnInfo CreationTimeColumn => this[ItemField.CreationTime];
     public ItemColumnInfo ModifiedTimeColumn => this[ItemField.ModifiedTime];
+    public ItemColumnInfo AccessTimeColumn => this[ItemField.AccessTime];
     public ItemColumnInfo OriginalSizeColumn => this[ItemField.OriginalSize];
     public ItemColumnInfo CompressedSizeColumn => this[ItemField.CompressedSize];
+    public ItemColumnInfo ExtendedDataColumn => this[ItemField.ExtendedData];
     public ItemColumnInfo MenuColumn => this[ItemField.Menu];
     private readonly List<ItemColumnInfo> _columns;
     public ItemColumnInfo this[ItemField field] {

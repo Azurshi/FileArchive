@@ -1,4 +1,5 @@
 ﻿using AzurArchive.Data.Database.Entities;
+using SQLiteORM;
 using System;
 using System.Collections.Generic;
 
@@ -25,8 +26,7 @@ public enum EntryAttributes {
     NoScrubData         = 0x00020000,
 
     Virtual             = 0x00010000,
-    EA                  = 0x00040000,
-    RecallOnOpen        = 0x00040000,
+    EA, RecallOnOpen    = 0x00040000,
     Pinned              = 0x00080000,
     Unpinned            = 0x00100000,
     RecallOnDataAccess  = 0x00400000,
@@ -40,9 +40,9 @@ public class Entry {
     public DateTime CreationTime { get; init; }
     public DateTime ModifiedTime { get; init; }
     public DateTime AccessTime { get; init; }
-    public DateTime MetadataChangeTime { get; init; }
 
     public string Name { get; init; }
+    public ReadOnlyMemory<byte>? EmbeddedIcon { get; init; }
     public Dictionary<string, string> ExtendedData { get; init; }
 
     public bool IsFolder => (this.Attributes & EntryAttributes.Directory) != 0;
@@ -53,8 +53,8 @@ public class Entry {
 
     public Entry(
         long parentId, long id, EntryAttributes attributes, long size,
-        DateTime creationTime, DateTime modifiedTime, DateTime accessTime, DateTime metadatChangeTime,
-        string name, Dictionary<string, string> extendedData
+        DateTime creationTime, DateTime modifiedTime, DateTime accessTime, 
+        string name, ReadOnlyMemory<byte>? embeddedIcon, Dictionary<string, string> extendedData
         ) {
         this.ParentId = parentId;
         this.Id = id; 
@@ -63,19 +63,19 @@ public class Entry {
         this.CreationTime = creationTime;
         this.ModifiedTime = modifiedTime;
         this.AccessTime = accessTime;
-        this.MetadataChangeTime = metadatChangeTime;
         this.Name = name;
+        this.EmbeddedIcon = embeddedIcon;
         this.ExtendedData = extendedData;
     }
     public Entry WithId(long id) {
         return new(this.ParentId, id, this.Attributes, this.Size,
-            this.CreationTime, this.ModifiedTime, this.AccessTime, this.MetadataChangeTime,
-            this.Name, this.ExtendedData);
+            this.CreationTime, this.ModifiedTime, this.AccessTime,
+            this.Name, this.EmbeddedIcon, this.ExtendedData);
     }
 
     internal static Entry FromEntity(EntryEntity entity) {
         return new(entity.ParentId, entity.Id!.Value, (EntryAttributes)entity.Attributes, entity.Size,
-            entity.CreationTime, entity.ModifiedTime, entity.AccessTime, entity.MetadataChangeTime,
-            entity.Name, []);
+            entity.CreationTime, entity.ModifiedTime, entity.AccessTime,
+            entity.Name, entity.EmbeddedIcon, []);
     }
 }

@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -30,9 +31,9 @@ public class MovingProgress {
 public interface IArchiver {
     public bool Busy { get; }
     public event EventHandler? BusyChanged;
-    public Task<Entry?> Import(long folderId, string inputPath, int nWorkers, IProgress<ArchiveProgress> progress, CancellationToken token);
-    public Task<bool> Restore(long entryId, string outputFolderPath, int nWorkers, IProgress<ArchiveProgress> progress, CancellationToken token);
-    public Task<long?> Delete(long entryId, IProgress<ArchiveProgress> progress, CancellationToken token);
+    public Task<Entry?> Import(long folderId, List<string> inputPaths, int nWorkers, IProgress<ArchiveProgress> progress, CancellationToken token);
+    public Task<bool> Export(List<long> entryIds, string outputFolderPath, int nWorkers, IProgress<ArchiveProgress> progress, CancellationToken token);
+    public Task<bool> Delete(List<long> entryIds, IProgress<ArchiveProgress> progress, CancellationToken token);
     public Task<long> GetEstimatedArchiveSize(long entryId, CancellationToken token);
     public Task<long> GetOriginalByteCount(CancellationToken token);
     public Task<long> GetCompressedByteCount(CancellationToken token);

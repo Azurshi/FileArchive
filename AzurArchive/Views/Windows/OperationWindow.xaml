@@ -15,7 +15,8 @@
         <Grid.RowDefinitions>
             <RowDefinition Height="48" />
             <RowDefinition Height="16" />
-            <RowDefinition Height="48" />
+            <RowDefinition Height="32" />
+            <RowDefinition Height="32" />
         </Grid.RowDefinitions>
         <Grid Grid.Row="0"
               ColumnSpacing="16">
@@ -35,6 +36,9 @@
                      x:Name="ProgressDisplay" 
                      VerticalAlignment="Center"/>
         <TextBlock Grid.Row="2"
+                   x:Name="ElapsedText"
+                   VerticalAlignment="Center" />
+        <TextBlock Grid.Row="3"
                    x:Name="MessageText" 
                    VerticalAlignment="Center"/>
     </Grid>

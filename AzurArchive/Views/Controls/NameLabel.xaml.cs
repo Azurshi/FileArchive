@@ -33,9 +33,10 @@ public sealed partial class NameLabel: UserControl {
             this.IconDisplay.Source = null;
         }
     }
-
+    private readonly IEntryService _entryService;
     public NameLabel() {
         InitializeComponent();
+        this._entryService = AppLifeCycle.Service.GetRequiredService<IEntryService>();
         this.ChangeMode(false);
     }
     private void ChangeMode(bool isEditing) {
@@ -71,14 +72,11 @@ public sealed partial class NameLabel: UserControl {
         if (newName.Length < Config.MinNameLength || data.Name.Equals(newName)) {
             return;
         }
-        var provider = AppLifeCycle.Service;
         if (data.IsFile) {
-            var fileService = provider.GetRequiredService<IFileService>();
-            await fileService.RenameFile(data.Id, newName);
+            await _entryService.Rename(data.Id, newName);
         }
         else {
-            var folderService = provider.GetRequiredService<IFolderService>();
-            await folderService.RenameFolder(data.Id, newName);
+            await _entryService.Rename(data.Id, newName);
         }
     }
 

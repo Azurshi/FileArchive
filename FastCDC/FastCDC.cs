@@ -14,9 +14,11 @@ public static class FastCDC {
         int maxSize = 32 * 1024,
         CDCImplementation impl = CDCImplementation.Normalized
     ) {
+#if !RELEASE
         ArgumentOutOfRangeException.ThrowIfNegative(minSize);
         ArgumentOutOfRangeException.ThrowIfNegative(midSize);
         ArgumentOutOfRangeException.ThrowIfNegative(maxSize);
+#endif
         var method = FastCDCChunking.GetMethod(impl);
         if (chunkBuffer.Length < 2 * maxSize) {
             throw new ArgumentException("Buffer size need to 2x larger than maxSize");
@@ -59,9 +61,11 @@ public static class FastCDC {
         int maxSize = 32 * 1024,
         CDCImplementation impl = CDCImplementation.Normalized
     ) {
+#if !RELEASE
         ArgumentOutOfRangeException.ThrowIfNegative(minSize);
         ArgumentOutOfRangeException.ThrowIfNegative(midSize);
         ArgumentOutOfRangeException.ThrowIfNegative(maxSize);
+#endif
         var method = FastCDCChunking.GetMethod(impl);
         if (chunkBuffer.Length < 2 * maxSize) {
             throw new ArgumentException("Buffer size need to 2x larger than maxSize");

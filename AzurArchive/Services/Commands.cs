@@ -11,15 +11,9 @@ using System.IO;
 namespace AzurArchive.Services;
 
 public static class Commands {
-    private static IFolderService FolderService {
+    private static IEntryService EntryService {
         get {
-            field ??= AppLifeCycle.Service.GetRequiredService<IFolderService>();
-            return field;
-        }
-    } = null;
-    private static IFileService FileService {
-        get {
-            field ??= AppLifeCycle.Service.GetRequiredService<IFileService>();
+            field ??= AppLifeCycle.Service.GetRequiredService<IEntryService>();
             return field;
         }
     } = null;
@@ -35,7 +29,7 @@ public static class Commands {
 
     private static void Archiver_BusyChanged(object? sender, EventArgs e) {
         ExportCommand.NotifyCanExecute();
-        ImportCommand.NotifyCanExecute();
+        ImportFolderCommand.NotifyCanExecute();
         DeleteCommand.NotifyCanExecute();
     }
 
@@ -55,7 +49,7 @@ public static class Commands {
                         }
                         var window = OperationWindow.Create(OperationType.Export);
                         window.Activate();
-                        await Archiver.Restore(vm.Id, path, 4, new Progress<ArchiveProgress>(window.Report), window.Token);
+                        await Archiver.Export([vm.Id], path, 4, new Progress<ArchiveProgress>(window.Report), window.Token);
                     }
                     else {
                         string fileName = Path.Combine(path, vm.Name);
@@ -65,7 +59,7 @@ public static class Commands {
                         }
                         var window = OperationWindow.Create(OperationType.Export);
                         window.Activate();
-                        await Archiver.Restore(vm.Id, path, 4, new Progress<ArchiveProgress>(window.Report), window.Token);
+                        await Archiver.Export([vm.Id], path, 4, new Progress<ArchiveProgress>(window.Report), window.Token);
                     }
                 }
                 else {
@@ -76,21 +70,33 @@ public static class Commands {
         (vm) => {
             return !Archiver.Busy;
         });
-    public static AsyncCommandExtend<long> ImportCommand { get; } = new(
+    public static AsyncCommandExtend<long> ImportFolderCommand { get; } = new(
         async (id) => {
-            string? path = await ExplorerPicker.PickFolder();
-            if (path != null) {
-                if (Directory.Exists(path)) {
-                    var window = OperationWindow.Create(OperationType.Import);
-                    window.Activate();
-                    var folder = await Archiver.Import(id, path, 4, new Progress<ArchiveProgress>(window.Report), window.Token);;
-                    if (folder != null) {
-                        ItemAddedEventArgs args = new(folder.Id, false);
-                        EventSystem.Publish(null, args);
-                    }
+            var paths = await ExplorerPicker.PickFolders();
+            if (paths.Count > 0) {
+                var window = OperationWindow.Create(OperationType.Import);
+                window.Activate();
+                var folder = await Archiver.Import(id, paths, 4, new Progress<ArchiveProgress>(window.Report), window.Token);
+                ;
+                if (folder != null) {
+                    ItemsChangedEventArgs args = new(true);
+                    EventSystem.Publish(null, args);
                 }
-                else {
-                    Debug.WriteLine("Folder does not exists");
+            }
+        },
+        (id) => {
+            return !Archiver.Busy;
+        });
+    public static AsyncCommandExtend<long> ImportFilesCommand { get; } = new(
+        async (id) => {
+            var paths = await ExplorerPicker.PickFiles(["*"]);
+            if (paths.Count > 0) {
+                var window = OperationWindow.Create(OperationType.Import);
+                window.Activate();
+                var folder = await Archiver.Import(id, paths, 4, new Progress<ArchiveProgress>(window.Report), window.Token); ;
+                if (folder != null) {
+                    ItemsChangedEventArgs args = new(true);
+                    EventSystem.Publish(null, args);
                 }
             }
         },
@@ -104,12 +110,11 @@ public static class Commands {
             }
             var window = OperationWindow.Create(OperationType.Delete);
             window.Activate();
-            var parentId = await Archiver.Delete(vm.Id, new Progress<ArchiveProgress>(window.Report), window.Token);
-            if (parentId != null) {
-                ItemDeletedEventArgs args = new(parentId.Value, vm.Id, vm.IsFile);
+            var success = await Archiver.Delete([vm.Id], new Progress<ArchiveProgress>(window.Report), window.Token);
+            if (success) {
+                ItemsChangedEventArgs args = new(vm.IsFolder);
                 EventSystem.Publish(null, args);
             }
-
         },
         (vm) => {
             return !Archiver.Busy;

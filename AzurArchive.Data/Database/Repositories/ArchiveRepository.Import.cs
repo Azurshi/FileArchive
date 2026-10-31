@@ -1,11 +1,15 @@
 ﻿using AzurArchive.Data.Database.Entities;
 using AzurArchive.Data.Services;
 using Blake3;
+using Microsoft.VisualBasic;
 using SQLiteORM;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.IO.Compression;
+using System.Linq;
+using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
 using ZstdNet;
@@ -23,6 +27,7 @@ internal partial class ArchiveRepository {
         CancellationToken token) {
         var now = DateTime.UtcNow;
         var chunkWriter = new ChunkContentWriter(saveDirectory);
+        var insertSession = chunkWriter.CreateInsertSession();
         string dbPath = Path.Join(saveDirectory, dbName);
         // Per-thread resources
         Memory<byte>[] compressBuffers = new Memory<byte>[nWorkers];
@@ -43,23 +48,19 @@ internal partial class ArchiveRepository {
         object writeLock = new();
         object hashLock = new();
         // Only one writer is allowed
-        void InsertChunk(Hash256 hash, Memory<byte> content, int originalSize, int compressionLevel) {
-            ChunkEntity entity = new((hash, 1, originalSize, content.Length, compressionLevel));
-            lock (writeLock) {
-                writer.Insert([entity], false);
-            }
-            lock (chunkLock) {
-                chunkWriter.InserChunk(hash, content);
-            }
-        }
         // Shared resources
-        // Need ~30M item to reach 1GB
+        // Need ~25M item to reach 1GB (each dict entry need 44 bytes: 4 hash code, 4 next, 32 key, 4 value
         Dictionary<Hash256, int> hashIncrease = ChunkRepository.ConstructHashTable(writer);
         int fileCount = fileDtos.Count;
+        List<ChunkEntity> chunkBatch = new(1024);
+        // Report
+        object reportLock = new();
+        Stopwatch throttleSw = Stopwatch.StartNew();
+        TimeSpan lastReport = TimeSpan.Zero;
+        int completedCount = 0;
         void Job(int tIndex, int fileIndex, EntryEntity file, string absPath, CancellationToken token) {
-            progress.Report(new(fileIndex + 1, fileCount, $"Adding: {file.Name}", false));
             // Get resource
-            var compressBuffer = compressBuffers[tIndex];
+            var compressBuffer = compressBuffers[tIndex].Span;
             var chunkBuffer = chunkBuffers[tIndex];
             var compressor = compressors[tIndex];
             var fileHashesBuffer = fileHashesBuffers[tIndex];
@@ -69,31 +70,6 @@ internal partial class ArchiveRepository {
             using (var stream = File.OpenRead(absPath)) {
                 foreach (var chunk in FastCDC.FastCDC.SplitToChunks(stream, chunkBuffer, Config.MinChunkSize, Config.MidChunkSize, Config.MaxChunkSize, CDCAlgorithm)) {
                     token.ThrowIfCancellationRequested();
-                    // TODO: Reuse from content buffer, check MusicEco for impl
-                    Hash256 hash = new();
-                    Hasher.Hash(chunk.Span, hash.AsSpan());
-                    bool exists = false;
-                    // Handle hash check
-                    lock(hashLock) {
-                        if (hashIncrease.TryGetValue(hash, out var increase)) {
-                            exists = true;
-                            hashIncrease[hash] = increase + 1;
-                        } else {
-                            exists = false;
-                            hashIncrease[hash] = 1;
-                        }
-                    }
-                    // Add if not exists
-                    if (!exists) {
-                        int compressedLength = compressor.Wrap(chunk.Span, compressBuffer.Span);
-                        var compressed = compressBuffer[..compressedLength];
-                        if (compressed.Length < chunk.Length) {
-                            InsertChunk(hash, compressed, chunk.Length, CompressionLevel);
-                        }
-                        else {
-                            InsertChunk(hash, chunk, chunk.Length, 0);
-                        }
-                    }
                     // Buffer overflow, reallocate
                     if (offset + 32 > fileHashesBuffer.Length) {
                         var newLength = fileHashesBuffer.Length * 2;
@@ -102,10 +78,39 @@ internal partial class ArchiveRepository {
                         fileHashesBuffer.CopyTo(newBuffer);
                         // fileContentBuffer can be released now
                     }
-                    var end = offset + 32;
-                    var dstSpan = fileHashesBuffer.Span[offset..end];
-                    offset = end;
-                    hash.AsReadOnlySpan().CopyTo(dstSpan);
+                    var dstSpan = fileHashesBuffer.Span.Slice(offset, 32);
+                    Hasher.Hash(chunk.Span, dstSpan);
+                    Hash256 hash = new(dstSpan);
+                    offset += 32;
+                    bool exists = false;
+                    // Handle hash check
+                    lock(hashLock) {
+                        ref int increase = ref CollectionsMarshal.GetValueRefOrAddDefault(
+                            hashIncrease, hash, out exists);
+                        increase++;
+                    }
+                    // Add if not exists
+                    if (!exists) {
+                        int compressedLength = compressor.Wrap(chunk.Span, compressBuffer);
+                        ReadOnlySpan<byte> content = compressBuffer[..compressedLength];
+                        int compressionLevel = CompressionLevel;
+                        if (content.Length >= chunk.Length) {
+                            content = chunk.Span;
+                            compressionLevel = 0;
+                        }
+                        // Will become 1 with hashIncrease
+                        ChunkEntity entity = new((hash, 0, chunk.Length, content.Length, compressionLevel));
+                        lock (writeLock) {
+                            if (chunkBatch.Count >= chunkBatch.Capacity) {
+                                writer.Insert(chunkBatch, false);
+                                chunkBatch.Clear();
+                            }
+                            chunkBatch.Add(entity);
+                        }
+                        lock (chunkLock) {
+                            insertSession.Insert(hash, content);
+                        }
+                    }
                 }
                 var fileContent = fileHashesBuffer[..offset];
                 lock(writeLock) {
@@ -113,6 +118,15 @@ internal partial class ArchiveRepository {
                         INSERT INTO EntryContentEntity (Id, Content)
                         VALUES (?, ?)
                         """, file.Id!.Value, fileContent);
+                }
+                lock(reportLock) {
+                    TimeSpan elapsed = throttleSw.Elapsed;
+                    completedCount++;
+                    bool shouldReport = completedCount == 1 || completedCount == fileCount || elapsed - lastReport > Config.UpdateInterval;
+                    if (shouldReport) {
+                        lastReport = elapsed;
+                        progress.Report(new(completedCount + 1, fileCount, $"Add: {file.Name}", false));
+                    }
                 }
             }
         }
@@ -142,6 +156,11 @@ internal partial class ArchiveRepository {
                 });
             }
             Task.WaitAll(workers);
+            // Flush batch
+            if (chunkBatch.Count > 0) {
+                writer.Insert(chunkBatch, false);
+                chunkBatch.Clear();
+            }
             progress.Report(new(fileCount, fileCount, "Insert relation", false));
             // Increase count
             foreach (var (hash, increase) in hashIncrease) {
@@ -161,33 +180,41 @@ internal partial class ArchiveRepository {
                 readers[i].Dispose(false);
                 compressors[i].Dispose();
             }
+            insertSession.Dispose();
             chunkWriter.Dispose();
         }
     }
-    public EntryEntity? ImportEntry(long parentId, string rootPath, int nWorkers, IProgress<ArchiveProgress> progress, CancellationToken token) {
+    public EntryEntity? ImportEntry(long parentId, List<string> rootPaths, int nWorkers, IProgress<ArchiveProgress> progress, CancellationToken token) {
         string dbPath = Path.Join(this._saveFolder, Config.DatabaseName);
         SQLiteWriteConnection writer = new(dbPath);
         writer.BeginTransaction();
         try {
-            var rootName = Path.GetFileName(rootPath);
-            if (parentId == -1 
-                || (EntryRepository.CheckExists(writer, parentId)
-                    && EntryRepository.Contain(writer, parentId, rootName)
-                    )
-                ) {
-                var (rootEntry, fileDtos) = EntryRepository.InsertRecursive(writer, parentId, rootPath);
-                if (fileDtos.Count > 0) {
-                    ImportFileContents(this._saveFolder, writer, Config.DatabaseName, fileDtos, nWorkers, progress, token);
+            // TODO:Check for inclusive paths
+            List<ValueTuple<EntryEntity, string>> totalFileDtos = [];
+            EntryEntity? rootEntry = null;
+            foreach(var rootPath in rootPaths) {
+                token.ThrowIfCancellationRequested();
+                var rootName = Path.GetFileName(rootPath);
+                if (parentId == -1
+                    || (EntryRepository.CheckExists(writer, parentId)
+                        && EntryRepository.Contain(writer, parentId, rootName)
+                        )
+                    ) {
+                    (rootEntry, var fileDtos) = EntryRepository.InsertRecursive(writer, parentId, rootPath);
+                    totalFileDtos.AddRange(fileDtos);
                 }
-                writer.CommitTransaction();
-                progress.Report(new(-1, -1, "Completed", true));
-                return rootEntry;
+                else {
+                    writer.RollbackTransaction();
+                    progress.Report(new(-1, -1, "Failed", true));
+                    return null;
+                }
             }
-            else {
-                writer.RollbackTransaction();
-                progress.Report(new(-1, -1, "Failed", true));
-                return null;
+            if (totalFileDtos.Count > 0) {
+                ImportFileContents(this._saveFolder, writer, Config.DatabaseName, totalFileDtos, nWorkers, progress, token);
             }
+            writer.CommitTransaction();
+            progress.Report(new(-1, -1, "Completed", true));
+            return rootEntry;
         }
         catch (Exception e) {
             Debug.WriteLine(e);

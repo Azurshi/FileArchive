@@ -23,7 +23,11 @@ internal partial class ChunkRepository {
         return string.Join(",", Enumerable.Repeat("?", count));
     }
     internal static Dictionary<Hash256, int> ConstructHashTable(SQLiteReadConnection reader) {
-        Dictionary<Hash256, int> hashes = [];
+        //var count = reader.Select<int>("""
+        //    SELECT Count(Hash)
+        //    FROM ChunkEntity
+        //    """).First().Item1;
+        Dictionary<Hash256, int> hashes = new(1024*1024);
         var rows = reader.Select<Hash256>("""
             SELECT Hash
             FROM ChunkEntity
