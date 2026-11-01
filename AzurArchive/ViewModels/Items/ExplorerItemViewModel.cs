@@ -52,7 +52,7 @@ public partial class ExplorerItemViewModel: ViewOnlyListItem, IUpdateble {
         this.ModifiedTime = entry.ModifiedTime;
         this.AccessTime = entry.AccessTime;
         this.ExtendedData = entry.ExtendedData;
-        this.OriginalSize = 0;
+        this.OriginalSize = entry.Size;
         this.OpenInNewWindowCommand = new(OpenInNewWindow, () => IsFolder);
     }
 

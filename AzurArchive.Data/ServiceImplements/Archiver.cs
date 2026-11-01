@@ -64,15 +64,15 @@ internal class Archiver: IArchiver {
         return result;
     }
 
-    public Task<long> GetEstimatedArchiveSize(long entryId, CancellationToken token) {
-        return Task.FromResult(0L);
+    public async Task<long> GetEstimatedArchiveSize(long entryId, CancellationToken token) {
+        return await this._chunkRepo.GetEstimatedArchiveSize(entryId, token);
     }
 
-    public Task<long> GetOriginalByteCount(CancellationToken token) {
-        return Task.FromResult(0L);
+    public async Task<long> GetOriginalByteCount(CancellationToken token) {
+        return await this._chunkRepo.GetOriginalByteCount();
     }
 
-    public Task<long> GetCompressedByteCount(CancellationToken token) {
-        return Task.FromResult(0L);
+    public async Task<long> GetCompressedByteCount(CancellationToken token) {
+        return await this._chunkRepo.GetCompressedByteCount();
     }
 }

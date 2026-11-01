@@ -5,6 +5,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Threading;
 
 namespace AzurArchive.Data.Database.Repositories;
@@ -36,12 +37,9 @@ internal partial class ArchiveRepository {
                 var fileContent = raw.sqlite3_column_blob(stmt, 0);
                 for (int offset = 0; offset < fileContent.Length; offset += 32) {
                     Hash256 hash = new(fileContent.Slice(offset, 32));
-                    if (hashDecrease.TryGetValue(hash, out var decrease)) {
-                        hashDecrease[hash] = decrease + 1;
-                    }
-                    else {
-                        hashDecrease[hash] = 1;
-                    }
+                    ref int decrease = ref CollectionsMarshal.GetValueRefOrAddDefault(
+                        hashDecrease, hash, out _);
+                    decrease++;
                 }
                 break;
             }

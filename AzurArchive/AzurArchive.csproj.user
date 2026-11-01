@@ -7,6 +7,9 @@
     <ActiveDebugProfile>AzurArchive (Unpackaged)</ActiveDebugProfile>
     <_LastSelectedProfileId>D:\Workstation\Storage\AzurArchive\AzurArchive\Properties\PublishProfiles\win-x64.pubxml</_LastSelectedProfileId>
   </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <DebuggerFlavor>ProjectDebugger</DebuggerFlavor>
+  </PropertyGroup>
   <ItemGroup>
     <None Update="App.xaml">
       <SubType>Designer</SubType>
