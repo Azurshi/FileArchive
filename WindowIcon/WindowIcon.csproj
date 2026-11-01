@@ -10,7 +10,7 @@
 	  <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
 
 	  <Optimize Condition="'$(Configuration)' == 'Release'">true</Optimize>
-
+	  <Optimize>true</Optimize>
 	  <Authors>Azurshi</Authors>
 	  <Version Condition="'$(Configuration)' == 'Debug'">0.0.5-preview</Version>
 	  <Version Condition="'$(Configuration)' == 'Release'">0.0.5</Version>

@@ -8,7 +8,9 @@
              mc:Ignorable="d">
     <Grid>
         <Button x:Name="DisplayButton"
-                Content="Get size" />
+                Content="Get size" 
+                HorizontalAlignment="Center"
+                VerticalAlignment="Center"/>
         <TextBlock x:Name="DisplayText"
                    Text="" 
                    Visibility="Collapsed"

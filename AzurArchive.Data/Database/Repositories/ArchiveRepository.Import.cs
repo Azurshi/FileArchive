@@ -76,6 +76,7 @@ internal partial class ArchiveRepository {
                         var newBuffer = new byte[newLength];
                         fileHashesBuffers[tIndex] = newBuffer;
                         fileHashesBuffer.CopyTo(newBuffer);
+                        fileHashesBuffer = newBuffer;
                         // fileContentBuffer can be released now
                     }
                     var dstSpan = fileHashesBuffer.Span.Slice(offset, 32);
@@ -197,7 +198,7 @@ internal partial class ArchiveRepository {
                 var rootName = Path.GetFileName(rootPath);
                 if (parentId == -1
                     || (EntryRepository.CheckExists(writer, parentId)
-                        && EntryRepository.Contain(writer, parentId, rootName)
+                        && !EntryRepository.Contain(writer, parentId, rootName)
                         )
                     ) {
                     (rootEntry, var fileDtos) = EntryRepository.InsertRecursive(writer, parentId, rootPath);

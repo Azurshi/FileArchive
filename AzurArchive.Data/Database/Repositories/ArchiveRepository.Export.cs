@@ -80,8 +80,8 @@ internal partial class ArchiveRepository {
                     fileHashesBuffers[tIndex] = newBuffer;
                     fileHashesBuffer = newBuffer;
                 }
-                    span.CopyTo(fileHashesBuffer);
-                    fileHashesBuffer = fileHashesBuffer[..span.Length];
+                span.CopyTo(fileHashesBuffer);
+                fileHashesBuffer = fileHashesBuffer[..span.Length];
                 break;
             }
             var path = Path.Join(outputFolder, file.Name);
