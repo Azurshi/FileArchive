@@ -74,7 +74,7 @@ internal partial class ArchiveRepository {
                 WHERE Id = ?
                 """, file.Id!.Value)) {
                 var span = raw.sqlite3_column_blob(stmt, 0);
-                if (span.Length > fileHashesBuffer.Length) {
+                while (span.Length > fileHashesBuffer.Length) {
                     var newLength = fileHashesBuffer.Length * 2;
                     var newBuffer = new byte[newLength];
                     fileHashesBuffers[tIndex] = newBuffer;

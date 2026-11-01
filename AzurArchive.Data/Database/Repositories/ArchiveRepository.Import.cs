@@ -71,7 +71,7 @@ internal partial class ArchiveRepository {
                 foreach (var chunk in FastCDC.FastCDC.SplitToChunks(stream, chunkBuffer, Config.MinChunkSize, Config.MidChunkSize, Config.MaxChunkSize, CDCAlgorithm)) {
                     token.ThrowIfCancellationRequested();
                     // Buffer overflow, reallocate
-                    if (offset + 32 > fileHashesBuffer.Length) {
+                    while (offset + 32 > fileHashesBuffer.Length) {
                         var newLength = fileHashesBuffer.Length * 2;
                         var newBuffer = new byte[newLength];
                         fileHashesBuffers[tIndex] = newBuffer;
